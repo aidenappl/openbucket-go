@@ -1,0 +1,4 @@
+<permissions>
+  <read>public</read>
+  <write>private</write>
+</permissions>
