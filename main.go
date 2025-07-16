@@ -21,6 +21,9 @@ func startServer() {
 	// Handle Request State
 	r.Use(middleware.RequestState)
 
+	// Logging middleware
+	r.Use(middleware.LoggingMiddleware)
+
 	// Handle the PUT request for uploading files
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
 	// Handle the GET request for listing buckets

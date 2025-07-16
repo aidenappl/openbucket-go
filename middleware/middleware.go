@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -8,7 +9,9 @@ import (
 // LoggingMiddleware logs the request method and URI
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(r.Method, r.RequestURI)
+		request := GetRequestID(r)
+		host := GetHostID(r)
+		log.Println(r.Method, r.RequestURI, fmt.Sprintf("|| Request ID: %s", request), fmt.Sprintf("Host: %s", host))
 		next.ServeHTTP(w, r)
 	})
 }
