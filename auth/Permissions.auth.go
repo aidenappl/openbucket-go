@@ -33,7 +33,7 @@ func LoadPermissions(bucketName string) (*types.Permissions, error) {
 func NewGrant(keyID string) types.Grant {
 	return types.Grant{
 		KeyID:     keyID,
-		DateAdded: time.Now().Format(time.RFC3339),
+		DateAdded: time.Now(),
 	}
 }
 

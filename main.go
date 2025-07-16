@@ -204,6 +204,30 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(listObjectsCmd)
 
+	// Show all credentials
+	var listCredentialsCmd = &cobra.Command{
+		Use:   "list-credentials",
+		Short: "List all credentials",
+		Run: func(cmd *cobra.Command, args []string) {
+			credentials, err := auth.LoadAuthorizations()
+			if err != nil {
+				fmt.Println("Error loading credentials:", err)
+				return
+			}
+			if len(credentials.Authorizations) == 0 {
+				fmt.Println("No credentials found")
+				return
+			}
+			table := tablewriter.NewWriter(os.Stdout)
+			table.Header([]string{"Key ID", "Secret Key", "Name", "Created At"})
+			for _, cred := range credentials.Authorizations {
+				table.Append([]string{cred.KeyID, cred.SecretKey, cred.Name, cred.DateCreated.Format("2006-01-02 15:04:05")})
+			}
+			table.Render()
+		},
+	}
+	rootCmd.AddCommand(listCredentialsCmd)
+
 	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
 		log.Println("Error executing CLI command:", err)

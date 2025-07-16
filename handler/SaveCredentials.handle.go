@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+
 	"log"
 	"os"
 	"time"
@@ -42,8 +43,8 @@ func SaveCredentials(creds *types.Authorization) error {
 		return fmt.Errorf("credentials Name cannot be empty")
 	}
 
-	if creds.DateCreated == "" {
-		creds.DateCreated = time.Now().Format(time.RFC3339)
+	if creds.DateCreated.IsZero() {
+		creds.DateCreated = time.Now()
 	}
 
 	// Append the new credentials to the existing list
