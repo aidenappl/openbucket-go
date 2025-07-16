@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/xml"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -45,10 +46,16 @@ func UpdatePermissions(bucketName string, permissions *types.Permissions) error 
 	}
 	defer file.Close()
 
-	encoder := xml.NewEncoder(file)
-	err = encoder.Encode(permissions)
+	permissionsXML, err := xml.MarshalIndent(permissions, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to encode permissions XML: %v", err)
+		log.Println("Error marshalling permissions to XML:", err)
+		return fmt.Errorf("error marshalling permissions to XML: %v", err)
+	}
+
+	_, err = file.WriteString(string(permissionsXML))
+	if err != nil {
+		log.Println("Error writing to permissions file:", err)
+		return fmt.Errorf("error writing to permissions file: %v", err)
 	}
 
 	return nil

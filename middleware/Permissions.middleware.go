@@ -99,24 +99,43 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// If permissions are required, check if the user has access
-		if permissions != nil && metadata != nil && !permissions.AllowGlobalRead && !metadata.Public {
-			// Check the permissions for the user (you would have your own logic for this)
-			keyID, err := GetAccessKeyFromRequest(r)
+		// Check the permissions for the user (you would have your own logic for this)
+		keyID, err := GetAccessKeyFromRequest(r)
+		if err != nil {
+			responder.SendXML(w, http.StatusUnauthorized, "Unauthorized", "Missing or invalid access key", "", "")
+			log.Println("Unauthorized: Missing or invalid access key")
+			return
+		}
+
+		if bucket != "" && key != "" {
+			// Collect the session information if available
+			authorized, err := auth.CheckUserPermissions(keyID, bucket)
 			if err != nil {
-				responder.SendXML(w, http.StatusUnauthorized, "Unauthorized", "Missing or invalid access key", "", "")
-				log.Println("Unauthorized: Missing or invalid access key")
+				responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to check user permissions", "", "")
+				log.Println("Error checking user permissions:", err)
 				return
 			}
-
-			// Here you would check whether the user has permission to access the bucket/key
-			authorized, err := auth.CheckUserPermissions(keyID, bucket)
-			if err != nil || authorized == nil {
+			if authorized != nil {
+				ctx = context.WithValue(ctx, SessionContextKey, authorized)
+			} else {
 				responder.SendXML(w, http.StatusForbidden, "Forbidden", "You do not have permission", "", "")
 				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
 				return
-			} else {
+			}
+		} else {
+			// Collect the session information if available
+			authorized, err := auth.CheckUserExists(keyID)
+			if err != nil {
+				responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to check user permissions", "", "")
+				log.Println("Error checking user permissions:", err)
+				return
+			}
+			if authorized != nil {
 				ctx = context.WithValue(ctx, SessionContextKey, authorized)
+			} else {
+				responder.SendXML(w, http.StatusForbidden, "Forbidden", "You do not have permission", "", "")
+				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
+				return
 			}
 		}
 

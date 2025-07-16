@@ -26,6 +26,21 @@ func LoadAuthorizations() (*types.Authorizations, error) {
 	return &authorizations, nil
 }
 
+func CheckUserExists(keyID string) (*types.Authorization, error) {
+	authorizations, err := LoadAuthorizations()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load authorizations: %v", err)
+	}
+
+	for _, auth := range authorizations.Authorizations {
+		if auth.KeyID == keyID {
+			return &auth, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // CheckUserPermissions checks if the user (keyID) has permission to access the given bucket
 func CheckUserPermissions(keyID, bucketName string) (*types.Authorization, error) {
 	// Load global authorizations to validate the KEY_ID

@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/routers"
 	"github.com/gorilla/mux"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -133,13 +135,74 @@ func setupCLI() {
 				fmt.Println("No buckets found")
 				return
 			}
-			fmt.Println("Buckets:")
-			for _, bucket := range *buckets {
-				fmt.Println("-", bucket.Name, "|| created:", bucket.CreationDate)
-			}
+			table := tablewriter.NewWriter(os.Stdout)
+			table.Header([]string{"Bucket Name", "Creation Date"})
+			table.Bulk(*buckets)
+			table.Render()
 		},
 	}
 	rootCmd.AddCommand(listBucketsCmd)
+
+	// Show bucket permissions
+	var permissionsCmd = &cobra.Command{
+		Use:   "permissions [bucket_name]",
+		Short: "Show permissions for a bucket",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			bucketName := args[0]
+			permissions, err := auth.LoadPermissions(bucketName)
+			if err != nil {
+				fmt.Println("Error getting bucket permissions:", err)
+				return
+			}
+			if len(permissions.Grants) == 0 {
+				fmt.Printf("No permissions set for bucket %s\n", bucketName)
+				return
+			}
+
+			// Display permissions in a table format
+			table0 := tablewriter.NewWriter(os.Stdout)
+			table0.Header([]string{"Global Read", "Global Write"})
+			table0.Append([]string{fmt.Sprintf("%t", permissions.AllowGlobalRead), fmt.Sprintf("%t", permissions.AllowGlobalWrite)})
+			table0.Render()
+
+			// Display grants in a separate table
+			table1 := tablewriter.NewWriter(os.Stdout)
+			table1.Header([]string{"Key ID", "Date Added"})
+			table1.Bulk(permissions.Grants)
+			table1.Render()
+		},
+	}
+	rootCmd.AddCommand(permissionsCmd)
+
+	// Show objects command
+	var listObjectsCmd = &cobra.Command{
+		Use:   "list-objects [bucket_name]",
+		Short: "List all objects in a bucket",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			bucketName := args[0]
+			objects, err := handler.ListObjects(bucketName)
+			if err != nil {
+				fmt.Println("Error listing objects:", err)
+				return
+			}
+			if len(*objects) == 0 {
+				fmt.Printf("No objects found in bucket %s\n", bucketName)
+				return
+			}
+
+			table := tablewriter.NewWriter(os.Stdout)
+			table.Header([]string{"Object Name", "Last Modified", "Size (bytes)"})
+			for _, obj := range *objects {
+				lastModStr := obj.LastModified.String()
+				table.Append([]string{obj.Key, lastModStr, fmt.Sprintf("%d", obj.Size)})
+			}
+			table.Render()
+
+		},
+	}
+	rootCmd.AddCommand(listObjectsCmd)
 
 	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
