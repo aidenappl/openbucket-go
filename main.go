@@ -90,7 +90,7 @@ func setupCLI() {
 			name := ""
 			fmt.Scanln(&name)
 			if name == "" {
-				log.Println("Credential name cannot be empty")
+				fmt.Println("Credential name cannot be empty")
 				return
 			}
 			creds := handler.GenerateCredentials()
@@ -111,13 +111,35 @@ func setupCLI() {
 			keyID := args[1]
 			err := handler.GrantAccess(bucketName, keyID)
 			if err != nil {
-				log.Println("Error granting access:", err)
+				fmt.Println("Error granting access:", err)
 				return
 			}
-			log.Printf("Access granted to %s for bucket %s\n", keyID, bucketName)
+			fmt.Printf("Access granted to %s for bucket %s\n", keyID, bucketName)
 		},
 	}
 	rootCmd.AddCommand(grantCmd)
+
+	// Show all buckets
+	var listBucketsCmd = &cobra.Command{
+		Use:   "list-buckets",
+		Short: "List all buckets",
+		Run: func(cmd *cobra.Command, args []string) {
+			buckets, err := handler.ListBuckets()
+			if err != nil {
+				fmt.Println("Error listing buckets:", err)
+				return
+			}
+			if len(*buckets) == 0 {
+				fmt.Println("No buckets found")
+				return
+			}
+			fmt.Println("Buckets:")
+			for _, bucket := range *buckets {
+				fmt.Println("-", bucket.Name, "|| created:", bucket.CreationDate)
+			}
+		},
+	}
+	rootCmd.AddCommand(listBucketsCmd)
 
 	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
