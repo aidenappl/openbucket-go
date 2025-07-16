@@ -12,15 +12,20 @@ type Authorization struct {
 
 // Authorizations represents the structure of the authorizations XML
 type Authorizations struct {
-	XMLName       xml.Name        `xml:"Authorizations"`
-	Authorization []Authorization `xml:"Authorization"`
+	XMLName        xml.Name        `xml:"Authorizations"`
+	Authorizations []Authorization `xml:"Authorization"`
 }
 
 // Permissions represents the structure of the bucket-specific permissions file
 type Permissions struct {
-	AllowGlobalRead  bool     `xml:"global_read"`
-	AllowGlobalWrite bool     `xml:"global_write"`
-	Grants           []string `xml:"grants>grant"`
+	AllowGlobalRead  bool    `xml:"global_read"`
+	AllowGlobalWrite bool    `xml:"global_write"`
+	Grants           []Grant `xml:"grants>grant"`
+}
+
+type Grant struct {
+	KeyID     string `xml:"keyID"`
+	DateAdded string `xml:"date_added"`
 }
 
 // Metadata represents the structure of the metadata XML file.

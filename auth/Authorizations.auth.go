@@ -27,38 +27,38 @@ func LoadAuthorizations() (*types.Authorizations, error) {
 }
 
 // CheckUserPermissions checks if the user (keyID) has permission to access the given bucket
-func CheckUserPermissions(keyID, bucketName string) (bool, error) {
+func CheckUserPermissions(keyID, bucketName string) (*types.Authorization, error) {
 	// Load global authorizations to validate the KEY_ID
 	authorizations, err := LoadAuthorizations()
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
+	var authorization *types.Authorization
 	// Check if the KEY_ID exists in the authorizations list
-	var authorized bool
-	for _, auth := range authorizations.Authorization {
+	for _, auth := range authorizations.Authorizations {
 		if auth.KeyID == keyID {
-			authorized = true
+			authorization = &auth
 			break
 		}
 	}
 
-	if !authorized {
-		return false, fmt.Errorf("user with KEY_ID %s is not authorized", keyID)
+	if authorization == nil {
+		return nil, fmt.Errorf("user with KEY_ID %s not found in authorizations", keyID)
 	}
 
 	// Load the bucket's permissions
 	permissions, err := LoadPermissions(bucketName)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	// Check if the user is granted access to the bucket
 	for _, grant := range permissions.Grants {
-		if grant == keyID {
-			return true, nil
+		if grant.KeyID == keyID {
+			return authorization, nil
 		}
 	}
 
-	return false, fmt.Errorf("user with KEY_ID %s does not have permission for bucket %s", keyID, bucketName)
+	return nil, fmt.Errorf("user with KEY_ID %s does not have permission for bucket %s", keyID, bucketName)
 }

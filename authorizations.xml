@@ -1,8 +1,8 @@
 <Authorizations>
     <Authorization>
-        <Name>Aiden</Name>
-        <KEY_ID>1234567890</KEY_ID>
-        <SECRET_KEY>abcdefghijklmnopqrstuvwxyz</SECRET_KEY>
-        <Date_Created>2023-10-01</Date_Created>
+        <Name>Bob</Name>
+        <KEY_ID>GJnl65vGBtBpZZ-vOXc2dSnz9eQf_5W6</KEY_ID>
+        <SECRET_KEY>2gUvR2wQ5ERL0zkgjGxbwmBESlJJUo0vs5ExRYAh2O-blVIuN4teNGEiXkwbzEDH</SECRET_KEY>
+        <Date_Created>2025-07-16T13:39:48-04:00</Date_Created>
     </Authorization>
 </Authorizations>

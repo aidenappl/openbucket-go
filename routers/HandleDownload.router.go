@@ -38,10 +38,10 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	metadata := middleware.RetrieveMetadata(r)
 
 	// Check if there is a session (if applicable)
-	session := middleware.IsSessionActive(r)
+	session := middleware.RetrieveSession(r)
 
 	// Validate the presigned URL signature (Optional only on restricted access)
-	if !metadata.Public && !permissions.AllowGlobalRead && !session {
+	if !metadata.Public && !permissions.AllowGlobalRead && session == nil {
 		if !isValidPresignURL(r, bucket, key) {
 			responder.SendXML(w, http.StatusUnauthorized, "InvalidSignature", "The presigned URL is invalid or expired", "", "")
 			log.Println(request, host, "Invalid or expired presigned URL:", key)

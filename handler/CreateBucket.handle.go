@@ -10,28 +10,6 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-// Authorization represents each user in the global authorizations file
-type Authorization struct {
-	Name        string `xml:"Name"`
-	KeyID       string `xml:"KEY_ID"`
-	SecretKey   string `xml:"SECRET_KEY"`
-	DateCreated string `xml:"Date_Created"`
-}
-
-// Authorizations represents the structure of the authorizations XML
-type Authorizations struct {
-	XMLName       xml.Name        `xml:"Authorizations"`
-	Authorization []Authorization `xml:"Authorization"`
-}
-
-// Permissions represents the structure of the bucket-specific permissions file
-type Permissions struct {
-	XMLName xml.Name `xml:"permissions"`
-	Read    string   `xml:"read"`
-	Write   string   `xml:"write"`
-	Grants  []string `xml:"grants>grant"`
-}
-
 func CreateBucket(bucket string) error {
 	// Define the file path for the object in the bucket
 	filePath := filepath.Join("buckets", bucket)
@@ -76,7 +54,7 @@ func CreateBucket(bucket string) error {
 	permissions := types.Permissions{
 		AllowGlobalRead:  false,
 		AllowGlobalWrite: false,
-		Grants:           []string{},
+		Grants:           []types.Grant{},
 	}
 
 	permissionsXML, err := xml.MarshalIndent(permissions, "", "  ")

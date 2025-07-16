@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/xml"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/aws"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
@@ -35,6 +37,12 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		// Load the bucket's permissions
 		var permissions *types.Permissions
 		var metadata *types.Metadata
+
+		// Check AWS Signature (if valid)
+		if !validateAWSSignature(r) {
+			responder.SendAccessDeniedXML(w, nil, nil)
+			return
+		}
 
 		// Load bucket permissions
 		if bucket != "" {
@@ -94,21 +102,21 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		// If permissions are required, check if the user has access
 		if permissions != nil && metadata != nil && !permissions.AllowGlobalRead && !metadata.Public {
 			// Check the permissions for the user (you would have your own logic for this)
-			keyID := r.Header.Get("X-Amz-Key-ID")
-			if keyID == "" {
-				responder.SendAccessDeniedXML(w, nil, nil)
-				log.Println("Unauthorized: Missing KEY_ID")
+			keyID, err := GetAccessKeyFromRequest(r)
+			if err != nil {
+				responder.SendXML(w, http.StatusUnauthorized, "Unauthorized", "Missing or invalid access key", "", "")
+				log.Println("Unauthorized: Missing or invalid access key")
 				return
 			}
 
 			// Here you would check whether the user has permission to access the bucket/key
 			authorized, err := auth.CheckUserPermissions(keyID, bucket)
-			if err != nil || !authorized {
+			if err != nil || authorized == nil {
 				responder.SendXML(w, http.StatusForbidden, "Forbidden", "You do not have permission", "", "")
 				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
 				return
 			} else {
-				ctx = context.WithValue(ctx, SessionContextKey, true)
+				ctx = context.WithValue(ctx, SessionContextKey, authorized)
 			}
 		}
 
@@ -118,6 +126,47 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		// Call the original handler
 		handler(w, r)
 	}
+}
+
+func GetAccessKeyFromRequest(r *http.Request) (string, error) {
+	authorizationHeader := r.Header.Get("Authorization")
+	if authorizationHeader == "" {
+		return "", fmt.Errorf("authorization header is missing")
+	}
+
+	// Extract the AWS access key and signature from the Authorization header
+	parts := strings.Split(authorizationHeader, " ")
+	if parts[0] != "AWS4-HMAC-SHA256" {
+		log.Println("Invalid Authorization header format")
+		return "", fmt.Errorf("invalid Authorization header format")
+	}
+
+	// Extract the credential part from the Authorization header
+	credentialParts := strings.Split(parts[1], "=")
+	if len(credentialParts) != 2 || credentialParts[0] != "Credential" {
+		log.Println("Invalid Credential format in Authorization header:", credentialParts)
+		return "", fmt.Errorf("invalid Credential format in Authorization header")
+	}
+
+	accessKey := strings.Split(credentialParts[1], "/")[0]
+	if accessKey == "" {
+		log.Println("Access Key is missing in Authorization header")
+		return "", fmt.Errorf("access key is missing in Authorization header")
+	}
+
+	return accessKey, nil
+}
+
+// Validate AWS Signature
+func validateAWSSignature(r *http.Request) bool {
+	// Extract necessary headers for validation
+	authorizationHeader := r.Header.Get("Authorization")
+	dateHeader := r.Header.Get("X-Amz-Date")
+	amzContentSHA256 := r.Header.Get("X-Amz-Content-SHA256")
+
+	// You can then pass these headers along with the request and verify them
+	// using AWS Signature Version 4 signing process or your own logic
+	return aws.ValidateSignature(r, authorizationHeader, dateHeader, amzContentSHA256)
 }
 
 // RetrievePermissions retrieves the permissions from the context.
@@ -140,12 +189,12 @@ func RetrieveMetadata(r *http.Request) *types.Metadata {
 	return metadata
 }
 
-// IsSessionActive checks if the session is active based on the request context.
-func IsSessionActive(r *http.Request) bool {
-	session, ok := r.Context().Value(SessionContextKey).(bool)
+// RetrieveSession retrieves the session information from the context.
+func RetrieveSession(r *http.Request) *types.Authorization {
+	session, ok := r.Context().Value(SessionContextKey).(*types.Authorization)
 	if !ok {
 		log.Println("Session state not found in context")
-		return false
+		return nil
 	}
 	return session
 }

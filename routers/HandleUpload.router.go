@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/aidenappl/openbucket-go/metadata"
+	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/gorilla/mux"
 )
@@ -27,10 +28,11 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate key is not obmeta
-	if strings.HasSuffix(key, ".obmeta") {
-		http.Error(w, "Cannot upload metadata files directly", http.StatusBadRequest)
-		log.Println("Attempted to upload metadata file directly:", key)
+	// Get the user session
+	user := middleware.RetrieveSession(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		log.Println("Unauthorized access attempt")
 		return
 	}
 
@@ -97,7 +99,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := metadata.New(bucket, key, etag, false)
+	metadata := metadata.New(bucket, key, etag, false, user.KeyID)
 
 	metadataFilePath := filePath + ".obmeta"
 	metadataFile, err := os.Create(metadataFilePath)

@@ -19,13 +19,13 @@ type Metadata struct {
 }
 
 func New(
-	bucket, key string, etag string, public bool,
+	bucket, key string, etag string, public bool, owner string,
 ) *Metadata {
 	return &Metadata{
 		ETag:              etag,
 		Bucket:            bucket,
 		Key:               key,
-		Owner:             "openbucket-go",
+		Owner:             owner,
 		VersionId:         "1", // Default version ID
 		PreviousVersionId: "",
 		Tags: struct {

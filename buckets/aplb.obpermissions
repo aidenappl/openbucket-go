@@ -1,5 +1,1 @@
-<Permissions>
-  <global_read>false</global_read>
-  <global_write>false</global_write>
-  <grants><grant>1234567890</grant></grants>
-</Permissions>
+<Permissions><global_read>false</global_read><global_write>false</global_write><grants><grant><keyID>GJnl65vGBtBpZZ-vOXc2dSnz9eQf_5W6</keyID><date_added>2025-07-16T15:02:49.408582-04:00</date_added></grant></grants></Permissions>

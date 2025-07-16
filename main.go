@@ -71,23 +71,53 @@ func createBucket(cmd *cobra.Command, args []string) {
 func setupCLI() {
 	var rootCmd = &cobra.Command{Use: "openbucket"}
 
-	var cliCmd = &cobra.Command{
-		Use:   "cli",
-		Short: "OpenBucket CLI",
-		Run: func(cmd *cobra.Command, args []string) {
-			log.Println("OpenBucket CLI is running. Use 'openbucket create-bucket [bucket_name]' to create a bucket.")
-		},
-	}
-	rootCmd.AddCommand(cliCmd)
+	// Create Bucket Command
 	var createCmd = &cobra.Command{
 		Use:   "create-bucket [bucket_name]",
 		Short: "Create a new bucket",
 		Args:  cobra.MinimumNArgs(1),
 		Run:   createBucket,
 	}
-
-	// Add the create-bucket command to the root command
 	rootCmd.AddCommand(createCmd)
+
+	// New Credentials Command
+	var credentialsCmd = &cobra.Command{
+		Use:   "generate-credentials",
+		Short: "Generate new credentials",
+		Run: func(cmd *cobra.Command, args []string) {
+			// Prompt user for credential name
+			fmt.Print("Enter credential name: ")
+			name := ""
+			fmt.Scanln(&name)
+			if name == "" {
+				log.Println("Credential name cannot be empty")
+				return
+			}
+			creds := handler.GenerateCredentials()
+			creds.Name = name
+			handler.SaveCredentials(creds)
+			fmt.Printf("Generated Credentials:\nAccess Key ID: %s\nSecret Access Key: %s\n", creds.KeyID, creds.SecretKey)
+		},
+	}
+	rootCmd.AddCommand(credentialsCmd)
+
+	// Grant to Bucket
+	var grantCmd = &cobra.Command{
+		Use:   "grant [bucket_name] [key_id]",
+		Short: "Grant access to a bucket for a user",
+		Args:  cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			bucketName := args[0]
+			keyID := args[1]
+			err := handler.GrantAccess(bucketName, keyID)
+			if err != nil {
+				log.Println("Error granting access:", err)
+				return
+			}
+			log.Printf("Access granted to %s for bucket %s\n", keyID, bucketName)
+		},
+	}
+	rootCmd.AddCommand(grantCmd)
 
 	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
