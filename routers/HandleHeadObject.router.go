@@ -34,17 +34,19 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if filepath.Base(cleanKey) == ".DS_Store" {
+	objPath := filepath.Join("buckets", bucket, cleanKey)
+	info, err := os.Stat(objPath)
+	if err != nil {
 		responder.SendXML(w, http.StatusNotFound, "NoSuchKey",
 			"Object not found", "", "")
 		return
 	}
 
-	objPath := filepath.Join("buckets", bucket, cleanKey)
-	info, err := os.Stat(objPath)
-	if err != nil || info.IsDir() {
-		responder.SendXML(w, http.StatusNotFound, "NoSuchKey",
-			"Object not found", "", "")
+	if info.IsDir() {
+		w.Header().Set("Content-Type", "application/xml")
+		w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+		w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 

@@ -14,6 +14,7 @@ type ObjectContent struct {
 
 type CommonPrefix struct {
 	Prefix string `xml:"Prefix"`
+	Size   int64  `xml:"Size,omitempty"`
 }
 
 type ObjectList struct {
