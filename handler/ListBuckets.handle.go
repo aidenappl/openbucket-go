@@ -15,7 +15,6 @@ func ListBucketsXML() (*types.BucketList, error) {
 		return nil, err
 	}
 
-	// Create a BucketList object to hold the response
 	bucketList := &types.BucketList{
 		Buckets: struct {
 			Bucket []types.Bucket `xml:"Bucket"`
@@ -24,7 +23,6 @@ func ListBucketsXML() (*types.BucketList, error) {
 		},
 	}
 
-	// Populate the BucketList with the bucket information
 	copy(bucketList.Buckets.Bucket, *buckets)
 
 	return bucketList, nil
@@ -38,13 +36,11 @@ func ListBuckets() (*[]types.Bucket, error) {
 		return nil, err
 	}
 
-	// Create a BucketList object to hold the response
 	var bucketList []types.Bucket
 
-	// Add each directory name as a bucket
 	for _, file := range files {
 		if file.IsDir() {
-			// Add a new bucket to the list
+
 			info, err := file.Info()
 			if err != nil {
 				log.Println("Error getting file info:", err)
@@ -52,7 +48,7 @@ func ListBuckets() (*[]types.Bucket, error) {
 			}
 			bucketList = append(bucketList, types.Bucket{
 				Name:         file.Name(),
-				CreationDate: info.ModTime().Format(time.RFC3339), // Use actual creation date
+				CreationDate: info.ModTime().Format(time.RFC3339),
 			})
 		}
 	}

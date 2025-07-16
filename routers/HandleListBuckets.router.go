@@ -9,7 +9,6 @@ import (
 )
 
 func HandleListBuckets(w http.ResponseWriter, r *http.Request) {
-	// Read the buckets directory to list all bucket directories
 
 	bucketsList, err := handler.ListBucketsXML()
 	if err != nil {

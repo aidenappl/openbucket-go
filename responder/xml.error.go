@@ -14,11 +14,10 @@ type ErrorResponse struct {
 }
 
 func SendXML(w http.ResponseWriter, statusCode int, code, message, requestId, hostId string) {
-	// Set the Content-Type to XML
+
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(statusCode)
 
-	// Create an instance of the error response struct
 	errorResp := ErrorResponse{
 		Code:      code,
 		Message:   message,
@@ -26,15 +25,13 @@ func SendXML(w http.ResponseWriter, statusCode int, code, message, requestId, ho
 		HostId:    hostId,
 	}
 
-	// Encode the error struct to XML
 	xmlData, err := xml.MarshalIndent(errorResp, "", "  ")
 	if err != nil {
-		// If there is an error marshalling to XML, return a generic message
+
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	// Write the XML response to the client
 	w.Write(xmlData)
 }
 

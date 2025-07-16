@@ -5,5 +5,5 @@ import (
 )
 
 func HandleCredentials(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement the logic to handle credentials
+
 }

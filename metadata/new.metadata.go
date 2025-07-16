@@ -2,13 +2,12 @@ package metadata
 
 import "time"
 
-// XML File Metadata
 type Metadata struct {
 	ETag   string `xml:"etag" json:"etag"`
 	Bucket string `xml:"bucket" json:"bucket"`
 	Key    string `xml:"key" json:"key"`
 	Tags   struct {
-		Tag []string `xml:"tag" json:"tag"` // Tags can be a slice of strings
+		Tag []string `xml:"tag" json:"tag"`
 	} `xml:"tags" json:"tags"`
 	VersionId         string    `xml:"versionId" json:"versionId"`
 	PreviousVersionId string    `xml:"previousVersionId,omitempty" json:"previousVersionId,omitempty"`
@@ -26,7 +25,7 @@ func New(
 		Bucket:            bucket,
 		Key:               key,
 		Owner:             owner,
-		VersionId:         "1", // Default version ID
+		VersionId:         "1",
 		PreviousVersionId: "",
 		Tags: struct {
 			Tag []string `xml:"tag" json:"tag"`

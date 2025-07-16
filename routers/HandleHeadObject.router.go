@@ -1,68 +1,68 @@
 package routers
 
 import (
-	"fmt"
-	"log"
+	"encoding/xml"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
+	"strings"
 
-	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/metadata"
 	"github.com/aidenappl/openbucket-go/responder"
+	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/gorilla/mux"
 )
 
 func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
-	// Get the bucket and key (file name) from the URL
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	key := vars["key"]
+	rawKey := vars["key"]
 
-	// Validate bucket and key
-	if bucket == "" || key == "" {
-		http.Error(w, "Bucket and key must be provided", http.StatusBadRequest)
-		log.Println("Bucket or key is empty")
+	if bucket == "" || rawKey == "" {
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest",
+			"Bucket and key must be provided", "", "")
 		return
 	}
 
-	// Define the file path for the object in the bucket
-	filePath := filepath.Join("buckets", bucket, key)
-
-	// Check if the file exists
-	_, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		responder.SendAccessDeniedXML(w, nil, nil)
-		log.Println("File not found:", filePath)
-		return
-	} else if err != nil {
-		// If there's any other error, return 500 Internal Server Error
-		responder.SendAccessDeniedXML(w, nil, nil)
-		log.Println("Error accessing file:", err)
+	cleanKey := path.Clean("/" + rawKey)
+	if strings.Contains(cleanKey, "..") ||
+		strings.HasSuffix(cleanKey, "/") {
+		responder.SendXML(w, http.StatusBadRequest, "InvalidKey",
+			"Invalid object key", "", "")
 		return
 	}
 
-	// Retrieve file info for metadata
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		responder.SendAccessDeniedXML(w, nil, nil)
-		log.Println("Error getting file info:", err)
+	if filepath.Base(cleanKey) == ".DS_Store" {
+		responder.SendXML(w, http.StatusNotFound, "NoSuchKey",
+			"Object not found", "", "")
 		return
 	}
 
-	metadata := middleware.RetrieveMetadata(r)
-	if metadata == nil {
-		responder.SendAccessDeniedXML(w, nil, nil)
-		log.Println("Metadata not found for file:", filePath)
+	objPath := filepath.Join("buckets", bucket, cleanKey)
+	info, err := os.Stat(objPath)
+	if err != nil || info.IsDir() {
+		responder.SendXML(w, http.StatusNotFound, "NoSuchKey",
+			"Object not found", "", "")
 		return
 	}
 
-	// Set the appropriate headers for the HEAD response
-	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat)) // Last-Modified header
-	w.Header().Set("Content-Type", "application/octet-stream")                        // Content-Type header (can be more specific)
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))              // Content-Length header
-	w.Header().Set("ETag", metadata.ETag)
+	var meta metadata.Metadata
+	metaPath := objPath + ".obmeta"
+	if f, err := os.Open(metaPath); err == nil {
+		_ = xml.NewDecoder(f).Decode(&meta)
+		f.Close()
+	}
 
-	// Respond with status OK (200)
+	cType := tools.ContentType(objPath)
+
+	w.Header().Set("Content-Type", cType)
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+	if meta.ETag != "" {
+		w.Header().Set("ETag", meta.ETag)
+	}
+
 	w.WriteHeader(http.StatusOK)
-	log.Println("Metadata retrieved for file:", filePath)
 }

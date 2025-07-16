@@ -14,16 +14,14 @@ import (
 	"time"
 )
 
-// ValidateSignature validates the AWS V4 signature
 func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzContentSHA256 string) bool {
-	// Extract the AWS access key and signature from the Authorization header
+
 	parts := strings.Split(authorizationHeader, " ")
 	if parts[0] != "AWS4-HMAC-SHA256" {
 		log.Println("Invalid Authorization header format")
 		return false
 	}
 
-	// Extract the credential part from the Authorization header
 	credentialParts := strings.Split(parts[1], "=")
 	if len(credentialParts) != 2 || credentialParts[0] != "Credential" {
 		log.Println("Invalid Credential format in Authorization header:", credentialParts)
@@ -45,7 +43,6 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 	rawSH = strings.TrimSpace(rawSH)
 	rawSH = strings.TrimSuffix(rawSH, ",")
 
-	// Extract the signature from the Authorization header
 	signatureParts := strings.Split(parts[3], "=")
 	if signatureParts[0] != "Signature" {
 		log.Println("Invalid Signature format in Authorization header:", signatureParts)
@@ -58,33 +55,26 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		return false
 	}
 
-	// Get the date from X-Amz-Date header
 	date, err := time.Parse("20060102T150405Z", dateHeader)
 	if err != nil {
 		log.Println("Error parsing date:", dateHeader, err)
 		return false
 	}
 
-	// Load the secret key from the Authorizations XML based on the Access Key ID
 	secretKey, err := loadSecretKeyByAccessKey(accessKey)
 	if err != nil {
 		log.Println("Error loading secret key for Access Key:", accessKey, err)
 		return false
 	}
 
-	// Generate the canonical request
 	canonicalRequest := buildCanonicalRequest(r, rawSH, amzContentSHA256)
 
-	// Generate the string to sign
 	stringToSign := buildStringToSign(date, "garage", "s3", canonicalRequest)
 
-	// Generate the signing key
 	signingKey := getSigningKey(secretKey, date, "garage", "s3")
 
-	// Compute the signature
 	computedSignature := computeSignature(signingKey, stringToSign)
 
-	// Compare the computed signature with the signature from the Authorization header
 	if computedSignature != signature {
 		log.Println("Signature mismatch: computed signature does not match header signature")
 		return false
@@ -99,7 +89,6 @@ func buildCanonicalRequest(r *http.Request,
 		r.Header.Set("Host", r.Host)
 	}
 
-	// split → clean → sort header names
 	hdrNames := strings.Split(signedHeadersCSV, ";")
 	var clean []string
 	for _, h := range hdrNames {

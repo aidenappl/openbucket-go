@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// ObjectList defines the structure of the XML response for listing objects in a bucket.
-// types.ObjectContent
 type ObjectContent struct {
 	Key          string  `xml:"Key"`
 	LastModified IsoTime `xml:"LastModified"`
@@ -14,12 +12,10 @@ type ObjectContent struct {
 	Size         int64   `xml:"Size"`
 }
 
-// types.CommonPrefix
 type CommonPrefix struct {
 	Prefix string `xml:"Prefix"`
 }
 
-// types.ObjectList
 type ObjectList struct {
 	XMLName        xml.Name        `xml:"ListBucketResult"`
 	Name           string          `xml:"Name"`

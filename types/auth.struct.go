@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// Authorization represents each user in the global authorizations file
 type Authorization struct {
 	Name        string    `xml:"Name"`
 	KeyID       string    `xml:"KEY_ID"`
@@ -13,13 +12,11 @@ type Authorization struct {
 	DateCreated time.Time `xml:"Date_Created"`
 }
 
-// Authorizations represents the structure of the authorizations XML
 type Authorizations struct {
 	XMLName        xml.Name        `xml:"Authorizations"`
 	Authorizations []Authorization `xml:"Authorization"`
 }
 
-// Permissions represents the structure of the bucket-specific permissions file
 type Permissions struct {
 	AllowGlobalRead  bool    `xml:"global_read"`
 	AllowGlobalWrite bool    `xml:"global_write"`
@@ -31,7 +28,6 @@ type Grant struct {
 	DateAdded time.Time `xml:"date_added"`
 }
 
-// Metadata represents the structure of the metadata XML file.
 type Metadata struct {
 	ETag         string    `xml:"etag"`
 	Bucket       string    `xml:"bucket"`

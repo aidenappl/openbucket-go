@@ -10,7 +10,6 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-// LoadPermissions loads the permissions XML file for a specific bucket
 func LoadPermissions(bucketName string) (*types.Permissions, error) {
 	permissionsFile := fmt.Sprintf("buckets/%s.obpermissions", bucketName)
 	file, err := os.Open(permissionsFile)
@@ -29,7 +28,6 @@ func LoadPermissions(bucketName string) (*types.Permissions, error) {
 	return &permissions, nil
 }
 
-// NewGrant creates a new grant for a specific keyID
 func NewGrant(keyID string) types.Grant {
 	return types.Grant{
 		KeyID:     keyID,
@@ -37,7 +35,6 @@ func NewGrant(keyID string) types.Grant {
 	}
 }
 
-// UpdatePermissions updates the permissions XML file for a specific bucket
 func UpdatePermissions(bucketName string, permissions *types.Permissions) error {
 	permissionsFile := fmt.Sprintf("buckets/%s.obpermissions", bucketName)
 	file, err := os.Create(permissionsFile)

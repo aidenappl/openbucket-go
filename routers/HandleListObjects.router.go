@@ -11,7 +11,7 @@ import (
 )
 
 func HandleListObjects(w http.ResponseWriter, r *http.Request) {
-	// Get the bucket name from the URL
+
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -22,9 +22,8 @@ func HandleListObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set the response header to XML
 	w.Header().Set("Content-Type", "application/xml")
-	// Write the XML response
+
 	w.WriteHeader(http.StatusOK)
 	xml.NewEncoder(w).Encode(objectList)
 }

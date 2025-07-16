@@ -19,16 +19,14 @@ func SaveCredentials(creds *types.Authorization) error {
 
 	filePath := "authorizations.xml"
 
-	// Check if the file exists and open it for reading
 	var existingAuthorizations types.Authorizations
 	if _, err := os.Stat(filePath); err == nil {
-		// File exists, read the existing data
+
 		xmlData, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return fmt.Errorf("failed to read existing XML file: %v", err)
 		}
 
-		// Unmarshal the existing XML data into the Authorizations struct
 		err = xml.Unmarshal(xmlData, &existingAuthorizations)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal existing XML data: %v", err)
@@ -47,16 +45,13 @@ func SaveCredentials(creds *types.Authorization) error {
 		creds.DateCreated = time.Now()
 	}
 
-	// Append the new credentials to the existing list
 	existingAuthorizations.Authorizations = append(existingAuthorizations.Authorizations, *creds)
 
-	// Marshal the updated data back to XML
 	xmlData, err := xml.MarshalIndent(existingAuthorizations, "", "    ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated XML data: %v", err)
 	}
 
-	// Write the updated XML back to the file
 	err = ioutil.WriteFile(filePath, xmlData, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write updated XML file: %v", err)

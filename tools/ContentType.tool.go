@@ -9,7 +9,6 @@ func ContentType(key string) string {
 	ext := strings.ToLower(filepath.Ext(key))
 	var contentType string
 
-	// Define MIME types for common file extensions
 	switch ext {
 	case ".jpg", ".jpeg":
 		contentType = "image/jpeg"
@@ -70,7 +69,7 @@ func ContentType(key string) string {
 	case ".7z":
 		contentType = "application/x-7z-compressed"
 	default:
-		contentType = "application/octet-stream" // Default for other types
+		contentType = "application/octet-stream"
 	}
 
 	return contentType

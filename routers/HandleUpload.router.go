@@ -16,19 +16,17 @@ import (
 )
 
 func HandleUpload(w http.ResponseWriter, r *http.Request) {
-	// Get the bucket and key (file/folder name) from the URL
+
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
 
-	// Validate bucket and key
 	if bucket == "" || key == "" {
 		http.Error(w, "Bucket and key must be provided", http.StatusBadRequest)
 		log.Println("Bucket or key is empty")
 		return
 	}
 
-	// Get the user session
 	user := middleware.RetrieveSession(r)
 	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -36,10 +34,8 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Define the destination path for the file/folder in the server's local storage
 	filePath := filepath.Join("buckets", bucket, key)
 
-	// Check if the bucket directory exists
 	bucketDir := filepath.Join("buckets", bucket)
 	if _, err := os.Stat(bucketDir); os.IsNotExist(err) {
 		http.Error(w, "Bucket not found", http.StatusNotFound)
@@ -51,10 +47,9 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if it's a directory upload (if key has no file extension, it is a directory)
 	isDirectory := strings.HasSuffix(key, "/")
 	if isDirectory {
-		// If the key represents a directory, ensure the directory exists
+
 		err := os.MkdirAll(filePath, os.ModePerm)
 		if err != nil {
 			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
@@ -66,7 +61,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If it's a file, create the directories and the file
 	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
 		http.Error(w, "Failed to create directory", http.StatusInternalServerError)
@@ -74,7 +68,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create the file on the server
 	file, err := os.Create(filePath)
 	if err != nil {
 		http.Error(w, "Unable to create file", http.StatusInternalServerError)
@@ -83,7 +76,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Copy the file contents from the request body to the server file
 	_, err = io.Copy(file, r.Body)
 	if err != nil {
 		http.Error(w, "Error saving file", http.StatusInternalServerError)
@@ -91,7 +83,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate the ETag after file upload
 	etag, err := tools.GenerateETag(filePath)
 	if err != nil {
 		http.Error(w, "Error generating ETag", http.StatusInternalServerError)
@@ -110,7 +101,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer metadataFile.Close()
 
-	// Write the metadata to the file
 	metadataXML, err := xml.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		log.Println("Error marshalling metadata to XML:", err)
@@ -125,7 +115,6 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Respond with success (status 200 OK)
 	w.WriteHeader(http.StatusOK)
 	log.Println("File uploaded successfully. ETag:", etag)
 }

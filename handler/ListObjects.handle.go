@@ -28,32 +28,30 @@ func ListObjects(bucket string) ([]types.ObjectContent, error) {
 		}
 
 		if isIgnored(d.Name()) {
-			return nil // skip
+			return nil
 		}
-		if path == root { // skip bucket root
+		if path == root {
 			return nil
 		}
 
-		rel, _ := filepath.Rel(root, path) // e.g.  "folder/file.txt"
-		rel = filepath.ToSlash(rel)        // Windows ➜ unix
-		key := rel                         // no leading slash for S3
+		rel, _ := filepath.Rel(root, path)
+		rel = filepath.ToSlash(rel)
+		key := rel
 		if d.IsDir() {
-			// directory placeholder: Size 0, LastModified = dir ModTime
+
 			st, _ := os.Stat(path)
 			out = append(out, types.ObjectContent{
-				Key:          key + "/", // "folder/"
+				Key:          key + "/",
 				LastModified: types.IsoTime(st.ModTime()),
 				Size:         0,
 			})
-			return nil // keep walking into sub‑dirs
+			return nil
 		}
 
-		// ignore loose *.obmeta
 		if strings.HasSuffix(d.Name(), ".obmeta") {
 			return nil
 		}
 
-		// ---------- real object ----------
 		st, _ := os.Stat(path)
 		oc := types.ObjectContent{
 			Key:          key,
@@ -61,7 +59,6 @@ func ListObjects(bucket string) ([]types.ObjectContent, error) {
 			Size:         st.Size(),
 		}
 
-		// optional metadata
 		metaPath := path + ".obmeta"
 		if f, err := os.Open(metaPath); err == nil {
 			defer f.Close()
@@ -80,13 +77,10 @@ func ListObjects(bucket string) ([]types.ObjectContent, error) {
 	return out, nil
 }
 
-// ListObjectsXML produces the exact XML expected by list‑objects‑v2.
 func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 
-	// recognise standard parameters
-	prefix := q.Get("prefix")       // may be ""
-	delimiter := q.Get("delimiter") // normally "/"
-	// (max‑keys, continuation‑token etc. omitted for brevity)
+	prefix := q.Get("prefix")
+	delimiter := q.Get("delimiter")
 
 	all, err := ListObjects(bucket)
 	if err != nil {
@@ -107,9 +101,8 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 			trim := strings.TrimPrefix(obj.Key, prefix)
 			trim = strings.TrimPrefix(trim, "/")
 
-			// <-- add this guard -----------------------------------------------
 			if trim == "" {
-				// it's the prefix itself ("howdo/") – do NOT emit anything
+
 				continue
 			}
 			//--------------------------------------------------------------------
@@ -122,7 +115,6 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 		contents = append(contents, obj)
 	}
 
-	// build sorted CommonPrefixes
 	var cps []types.CommonPrefix
 	for p := range cpMap {
 		cps = append(cps, types.CommonPrefix{Prefix: p})
@@ -141,7 +133,7 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 }
 
 func isIgnored(name string) bool {
-	if name == ".DS_Store" { // macOS Finder file
+	if name == ".DS_Store" {
 		return true
 	}
 	return false

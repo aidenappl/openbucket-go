@@ -16,35 +16,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Server Code
 func startServer() {
-	// Create a new router using Gorilla Mux
+
 	r := mux.NewRouter()
 
-	// Handle Request State
 	r.Use(middleware.RequestState)
 
-	// Logging middleware
 	r.Use(middleware.LoggingMiddleware)
 
-	// Handle the PUT request for uploading files
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
-	// Handle the GET request for listing buckets
+
 	r.HandleFunc("/", middleware.Authorized(routers.HandleListBuckets)).Methods(http.MethodGet)
-	// Handle the GET request for listing objects in a bucket
+
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleListObjects)).Methods(http.MethodGet)
-	// Handle head of an object
+
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleHeadObject)).Methods(http.MethodHead)
-	// Handle the GET request for downloading an object
+
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDownload)).Methods(http.MethodGet)
-	// Handle delete of an object
+
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
-	// Create Bucket
+
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleCreateBucket)).Methods(http.MethodPut)
-	// Delete Bucket
+
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleDeleteBucket)).Methods(http.MethodDelete)
 
-	// Start the server
 	log.Println("Server started at http://localhost:8080")
 	err := http.ListenAndServe(":8080", r)
 	if err != nil {
@@ -52,7 +47,6 @@ func startServer() {
 	}
 }
 
-// CLI Code
 func createBucket(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		log.Println("Bucket name is required")
@@ -74,7 +68,6 @@ func createBucket(cmd *cobra.Command, args []string) {
 func setupCLI() {
 	var rootCmd = &cobra.Command{Use: "openbucket"}
 
-	// Create Bucket Command
 	var createCmd = &cobra.Command{
 		Use:   "create-bucket [bucket_name]",
 		Short: "Create a new bucket",
@@ -83,12 +76,11 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(createCmd)
 
-	// New Credentials Command
 	var credentialsCmd = &cobra.Command{
 		Use:   "generate-credentials",
 		Short: "Generate new credentials",
 		Run: func(cmd *cobra.Command, args []string) {
-			// Prompt user for credential name
+
 			fmt.Print("Enter credential name: ")
 			name := ""
 			fmt.Scanln(&name)
@@ -104,7 +96,6 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(credentialsCmd)
 
-	// Grant to Bucket
 	var grantCmd = &cobra.Command{
 		Use:   "grant [bucket_name] [key_id]",
 		Short: "Grant access to a bucket for a user",
@@ -122,7 +113,6 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(grantCmd)
 
-	// Show all buckets
 	var listBucketsCmd = &cobra.Command{
 		Use:   "list-buckets",
 		Short: "List all buckets",
@@ -144,7 +134,6 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(listBucketsCmd)
 
-	// Show bucket permissions
 	var permissionsCmd = &cobra.Command{
 		Use:   "permissions [bucket_name]",
 		Short: "Show permissions for a bucket",
@@ -161,13 +150,11 @@ func setupCLI() {
 				return
 			}
 
-			// Display permissions in a table format
 			table0 := tablewriter.NewWriter(os.Stdout)
 			table0.Header([]string{"Global Read", "Global Write"})
 			table0.Append([]string{fmt.Sprintf("%t", permissions.AllowGlobalRead), fmt.Sprintf("%t", permissions.AllowGlobalWrite)})
 			table0.Render()
 
-			// Display grants in a separate table
 			table1 := tablewriter.NewWriter(os.Stdout)
 			table1.Header([]string{"Key ID", "Date Added"})
 			table1.Bulk(permissions.Grants)
@@ -176,7 +163,6 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(permissionsCmd)
 
-	// Show objects command
 	var listObjectsCmd = &cobra.Command{
 		Use:   "list-objects [bucket]",
 		Short: "List objects (and folders) in a bucket",
@@ -190,7 +176,7 @@ func setupCLI() {
 			prefix, _ := cmd.Flags().GetString("prefix")
 			delimiter, _ := cmd.Flags().GetString("delimiter")
 			if delimiter == "" {
-				delimiter = "/" // CLI default
+				delimiter = "/"
 			}
 
 			objs, err := handler.ListObjects(bucket)
@@ -229,7 +215,6 @@ func setupCLI() {
 
 	rootCmd.AddCommand(listObjectsCmd)
 
-	// Show all credentials
 	var listCredentialsCmd = &cobra.Command{
 		Use:   "list-credentials",
 		Short: "List all credentials",
@@ -253,21 +238,19 @@ func setupCLI() {
 	}
 	rootCmd.AddCommand(listCredentialsCmd)
 
-	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
 		log.Println("Error executing CLI command:", err)
 		os.Exit(1)
 	}
 }
 
-// main function
 func main() {
-	// Check if the first argument is 'cli', if so run CLI commands
+
 	if len(os.Args) > 1 {
-		// Run the CLI logic
+
 		setupCLI()
 	} else {
-		// Otherwise, run the server
+
 		startServer()
 	}
 }
