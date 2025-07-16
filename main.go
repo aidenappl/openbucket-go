@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/handler"
@@ -177,31 +178,55 @@ func setupCLI() {
 
 	// Show objects command
 	var listObjectsCmd = &cobra.Command{
-		Use:   "list-objects [bucket_name]",
-		Short: "List all objects in a bucket",
+		Use:   "list-objects [bucket]",
+		Short: "List objects (and folders) in a bucket",
+		Long:  `List objects in a bucket. Optional flags --prefix and --delimiter work like AWS S3.`,
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			bucketName := args[0]
-			objects, err := handler.ListObjects(bucketName)
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			bucket := args[0]
+
+			prefix, _ := cmd.Flags().GetString("prefix")
+			delimiter, _ := cmd.Flags().GetString("delimiter")
+			if delimiter == "" {
+				delimiter = "/" // CLI default
+			}
+
+			objs, err := handler.ListObjects(bucket)
 			if err != nil {
-				fmt.Println("Error listing objects:", err)
-				return
+				return fmt.Errorf("list objects: %w", err)
 			}
-			if len(*objects) == 0 {
-				fmt.Printf("No objects found in bucket %s\n", bucketName)
-				return
+			if len(objs) == 0 {
+				fmt.Printf("No objects found in bucket %q (prefix %q)\n", bucket, prefix)
+				return nil
 			}
 
-			table := tablewriter.NewWriter(os.Stdout)
-			table.Header([]string{"Object Name", "Last Modified", "Size (bytes)"})
-			for _, obj := range *objects {
-				lastModStr := obj.LastModified.String()
-				table.Append([]string{obj.Key, lastModStr, fmt.Sprintf("%d", obj.Size)})
-			}
-			table.Render()
+			tbl := tablewriter.NewWriter(os.Stdout)
+			tbl.Header([]string{"Key", "Type", "Size", "Last Modified"})
 
+			for _, o := range objs {
+				typ := "FILE"
+				size := fmt.Sprintf("%d", o.Size)
+
+				if strings.HasSuffix(o.Key, "/") {
+					typ = "DIR"
+					size = "-"
+				}
+				tbl.Append([]string{
+					o.Key,
+					typ,
+					size,
+					"",
+				})
+			}
+			tbl.Render()
+			return nil
 		},
 	}
+	listObjectsCmd.Flags().StringP("prefix", "p", "", "only keys that begin with this prefix")
+	listObjectsCmd.Flags().StringP("delimiter", "d", "/", "path delimiter (default '/')")
+
 	rootCmd.AddCommand(listObjectsCmd)
 
 	// Show all credentials

@@ -1,7 +1,6 @@
 package routers
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -74,10 +73,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set metadata in response headers (optional)
-	w.Header().Set("X-Object-ETag", metadata.ETag)
-	w.Header().Set("X-Object-LastModified", metadata.LastModified.Format(http.TimeFormat))
-	w.Header().Set("X-Object-Owner", metadata.Owner)
-	w.Header().Set("X-Object-Public", fmt.Sprintf("%t", metadata.Public))
+	w.Header().Set("ETag", metadata.ETag)
 	w.Header().Set("Content-Type", tools.ContentType(filePath))
 	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat)) // Set the LastModified header
 

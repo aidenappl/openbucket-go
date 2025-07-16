@@ -12,6 +12,7 @@ import (
 
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/aws"
+	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
@@ -37,12 +38,6 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		// Load the bucket's permissions
 		var permissions *types.Permissions
 		var metadata *types.Metadata
-
-		// Check AWS Signature (if valid)
-		if !validateAWSSignature(r) {
-			responder.SendAccessDeniedXML(w, nil, nil)
-			return
-		}
 
 		// Load bucket permissions
 		if bucket != "" {
@@ -95,6 +90,8 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		if permissions != nil && permissions.AllowGlobalWrite && isWriteRoute(r) ||
 			permissions != nil && permissions.AllowGlobalRead && isReadRoute(r) ||
 			metadata != nil && metadata.Public && isReadRoute(r) {
+			// Store the context with both permissions and metadata
+			r = r.WithContext(ctx)
 			handler(w, r)
 			return
 		}
@@ -148,6 +145,15 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 }
 
 func GetAccessKeyFromRequest(r *http.Request) (string, error) {
+	// If bypassing permissions, we can return the authorization header directly
+	if env.BypassPermissions {
+		authorizationHeader := r.Header.Get("Authorization")
+		if authorizationHeader == "" {
+			return "", fmt.Errorf("authorization header is missing")
+		}
+		return authorizationHeader, nil
+	}
+
 	authorizationHeader := r.Header.Get("Authorization")
 	if authorizationHeader == "" {
 		return "", fmt.Errorf("authorization header is missing")
@@ -156,8 +162,8 @@ func GetAccessKeyFromRequest(r *http.Request) (string, error) {
 	// Extract the AWS access key and signature from the Authorization header
 	parts := strings.Split(authorizationHeader, " ")
 	if parts[0] != "AWS4-HMAC-SHA256" {
-		log.Println("Invalid Authorization header format")
-		return "", fmt.Errorf("invalid Authorization header format")
+		log.Println("Invalid Authorization header format for AWS signature")
+		return "", fmt.Errorf("invalid Authorization header format for AWS signature")
 	}
 
 	// Extract the credential part from the Authorization header

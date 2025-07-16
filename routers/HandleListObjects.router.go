@@ -15,7 +15,7 @@ func HandleListObjects(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	objectList, err := handler.ListObjectsXML(bucket)
+	objectList, err := handler.ListObjectsXML(bucket, r.URL.Query())
 	if err != nil {
 		responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to list objects", "", "")
 		log.Println("Error listing objects:", err)
