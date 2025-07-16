@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/routers"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
@@ -17,25 +18,28 @@ func startServer() {
 	// Create a new router using Gorilla Mux
 	r := mux.NewRouter()
 
+	// Handle Request State
+	r.Use(middleware.RequestState)
+
 	// Handle the PUT request for uploading files
-	r.HandleFunc("/{bucket}/{key:.*}", routers.HandleUpload).Methods(http.MethodPut)
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
 	// Handle the GET request for listing buckets
-	r.HandleFunc("/", routers.HandleListBuckets).Methods(http.MethodGet)
+	r.HandleFunc("/", middleware.Authorized(routers.HandleListBuckets)).Methods(http.MethodGet)
 	// Handle the GET request for listing objects in a bucket
-	r.HandleFunc("/{bucket}", routers.HandleListObjects).Methods(http.MethodGet)
+	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleListObjects)).Methods(http.MethodGet)
 	// Handle head of an object
-	r.HandleFunc("/{bucket}/{key:.*}", routers.HandleHeadObject).Methods(http.MethodHead)
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleHeadObject)).Methods(http.MethodHead)
 	// Handle the GET request for downloading an object
-	r.HandleFunc("/{bucket}/{key:.*}", routers.HandleDownload).Methods(http.MethodGet)
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDownload)).Methods(http.MethodGet)
 	// Handle delete of an object
-	r.HandleFunc("/{bucket}/{key:.*}", routers.HandleDelete).Methods(http.MethodDelete)
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
 	// Create Bucket
-	r.HandleFunc("/{bucket}", routers.HandleCreateBucket).Methods(http.MethodPut)
+	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleCreateBucket)).Methods(http.MethodPut)
 	// Delete Bucket
-	r.HandleFunc("/{bucket}", routers.HandleDeleteBucket).Methods(http.MethodDelete)
+	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleDeleteBucket)).Methods(http.MethodDelete)
 
 	// Start the server
-	fmt.Println("Server started at http://localhost:8080")
+	log.Println("Server started at http://localhost:8080")
 	err := http.ListenAndServe(":8080", r)
 	if err != nil {
 		log.Fatal("Error starting server:", err)
@@ -45,7 +49,7 @@ func startServer() {
 // CLI Code
 func createBucket(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Bucket name is required")
+		log.Println("Bucket name is required")
 		return
 	}
 
@@ -54,11 +58,11 @@ func createBucket(cmd *cobra.Command, args []string) {
 
 	err := handler.CreateBucket(bucketName)
 	if err != nil {
-		fmt.Println("Error creating bucket:", err)
+		log.Println("Error creating bucket:", err)
 		return
 	}
 
-	fmt.Println("Bucket created successfully")
+	log.Println("Bucket created successfully")
 }
 
 func setupCLI() {
@@ -68,7 +72,7 @@ func setupCLI() {
 		Use:   "cli",
 		Short: "OpenBucket CLI",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("OpenBucket CLI is running. Use 'openbucket create-bucket [bucket_name]' to create a bucket.")
+			log.Println("OpenBucket CLI is running. Use 'openbucket create-bucket [bucket_name]' to create a bucket.")
 		},
 	}
 	rootCmd.AddCommand(cliCmd)
@@ -84,7 +88,7 @@ func setupCLI() {
 
 	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println("Error executing CLI command:", err)
+		log.Println("Error executing CLI command:", err)
 		os.Exit(1)
 	}
 }

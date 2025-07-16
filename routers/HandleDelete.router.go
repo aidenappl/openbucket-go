@@ -2,6 +2,7 @@ package routers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func HandleDelete(w http.ResponseWriter, r *http.Request) {
 	err := os.Remove(filePath)
 	if err != nil {
 		http.Error(w, "Failed to delete object", http.StatusInternalServerError)
-		fmt.Println("Error deleting file:", err)
+		log.Println("Error deleting file:", err)
 		return
 	}
 

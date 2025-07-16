@@ -2,6 +2,7 @@ package routers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,14 +20,14 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	// Validate bucket and key
 	if bucket == "" || key == "" {
 		http.Error(w, "Bucket and key must be provided", http.StatusBadRequest)
-		fmt.Println("Bucket or key is empty")
+		log.Println("Bucket or key is empty")
 		return
 	}
 
 	// Validate key is not obmeta
 	if strings.HasSuffix(key, ".obmeta") {
 		http.Error(w, "Cannot access metadata files directly", http.StatusBadRequest)
-		fmt.Println("Attempted to access metadata file directly:", key)
+		log.Println("Attempted to access metadata file directly:", key)
 		return
 	}
 
@@ -38,12 +39,12 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	if os.IsNotExist(err) {
 		// If the file doesn't exist, return 404 Not Found
 		http.Error(w, "File Not Found", http.StatusNotFound)
-		fmt.Println("File not found:", filePath)
+		log.Println("File not found:", filePath)
 		return
 	} else if err != nil {
 		// If there's any other error, return 500 Internal Server Error
 		http.Error(w, "Unable to retrieve file metadata", http.StatusInternalServerError)
-		fmt.Println("Error accessing file:", err)
+		log.Println("Error accessing file:", err)
 		return
 	}
 
@@ -51,7 +52,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		http.Error(w, "Unable to get file info", http.StatusInternalServerError)
-		fmt.Println("Error getting file info:", err)
+		log.Println("Error getting file info:", err)
 		return
 	}
 
@@ -63,5 +64,5 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with status OK (200)
 	w.WriteHeader(http.StatusOK)
-	fmt.Println("Metadata retrieved for file:", filePath)
+	log.Println("Metadata retrieved for file:", filePath)
 }

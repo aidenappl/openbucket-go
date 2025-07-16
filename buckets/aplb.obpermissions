@@ -1,4 +1,5 @@
-<permissions>
-  <read>public</read>
-  <write>private</write>
-</permissions>
+<Permissions>
+  <global_read>false</global_read>
+  <global_write>false</global_write>
+  <grants><grant>1234567890</grant></grants>
+</Permissions>

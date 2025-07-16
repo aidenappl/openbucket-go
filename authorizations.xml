@@ -1,0 +1,8 @@
+<Authorizations>
+    <Authorization>
+        <Name>Aiden</Name>
+        <KEY_ID>1234567890</KEY_ID>
+        <SECRET_KEY>abcdefghijklmnopqrstuvwxyz</SECRET_KEY>
+        <Date_Created>2023-10-01</Date_Created>
+    </Authorization>
+</Authorizations>

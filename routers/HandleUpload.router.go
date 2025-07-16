@@ -2,7 +2,6 @@ package routers
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -24,14 +23,14 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	// Validate bucket and key
 	if bucket == "" || key == "" {
 		http.Error(w, "Bucket and key must be provided", http.StatusBadRequest)
-		fmt.Println("Bucket or key is empty")
+		log.Println("Bucket or key is empty")
 		return
 	}
 
 	// Validate key is not obmeta
 	if strings.HasSuffix(key, ".obmeta") {
 		http.Error(w, "Cannot upload metadata files directly", http.StatusBadRequest)
-		fmt.Println("Attempted to upload metadata file directly:", key)
+		log.Println("Attempted to upload metadata file directly:", key)
 		return
 	}
 
@@ -42,11 +41,11 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	bucketDir := filepath.Join("buckets", bucket)
 	if _, err := os.Stat(bucketDir); os.IsNotExist(err) {
 		http.Error(w, "Bucket not found", http.StatusNotFound)
-		fmt.Println("Bucket not found:", bucketDir)
+		log.Println("Bucket not found:", bucketDir)
 		return
 	} else if err != nil {
 		http.Error(w, "Unable to access bucket", http.StatusInternalServerError)
-		fmt.Println("Error accessing bucket:", err)
+		log.Println("Error accessing bucket:", err)
 		return
 	}
 
@@ -57,11 +56,11 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		err := os.MkdirAll(filePath, os.ModePerm)
 		if err != nil {
 			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
-			fmt.Println("Error creating directory:", err)
+			log.Println("Error creating directory:", err)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Println("Directory created:", filePath)
+		log.Println("Directory created:", filePath)
 		return
 	}
 
@@ -69,7 +68,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
 		http.Error(w, "Failed to create directory", http.StatusInternalServerError)
-		fmt.Println("Error creating directory:", err)
+		log.Println("Error creating directory:", err)
 		return
 	}
 
@@ -77,7 +76,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	file, err := os.Create(filePath)
 	if err != nil {
 		http.Error(w, "Unable to create file", http.StatusInternalServerError)
-		fmt.Println("Error creating file:", err)
+		log.Println("Error creating file:", err)
 		return
 	}
 	defer file.Close()
@@ -86,7 +85,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(file, r.Body)
 	if err != nil {
 		http.Error(w, "Error saving file", http.StatusInternalServerError)
-		fmt.Println("Error saving file:", err)
+		log.Println("Error saving file:", err)
 		return
 	}
 
@@ -94,32 +93,33 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	etag, err := tools.GenerateETag(filePath)
 	if err != nil {
 		http.Error(w, "Error generating ETag", http.StatusInternalServerError)
-		fmt.Println("Error generating ETag:", err)
+		log.Println("Error generating ETag:", err)
 		return
 	}
 
-	metadata := metadata.New(
-		bucket,
-		key,
-		etag,
-		false, // Assuming public is false by default, can be changed based on requirements
-	)
+	metadata := metadata.New(bucket, key, etag, false)
 
 	metadataFilePath := filePath + ".obmeta"
 	metadataFile, err := os.Create(metadataFilePath)
 	if err != nil {
 		http.Error(w, "Error saving metadata", http.StatusInternalServerError)
-		fmt.Println("Error saving metadata:", err)
+		log.Println("Error saving metadata:", err)
 		return
 	}
 	defer metadataFile.Close()
 
 	// Write the metadata to the file
-	encoder := xml.NewEncoder(metadataFile)
-	err = encoder.Encode(metadata)
+	metadataXML, err := xml.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		http.Error(w, "Error encoding metadata", http.StatusInternalServerError)
-		fmt.Println("Error encoding metadata:", err)
+		log.Println("Error marshalling metadata to XML:", err)
+		http.Error(w, "Error marshalling metadata", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = metadataFile.WriteString(string(metadataXML))
+	if err != nil {
+		log.Println("Error writing to metadata file:", err)
+		http.Error(w, "Error writing to metadata file", http.StatusInternalServerError)
 		return
 	}
 

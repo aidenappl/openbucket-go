@@ -1,11 +1,36 @@
 package handler
 
 import (
+	"encoding/xml"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/aidenappl/openbucket-go/types"
 )
+
+// Authorization represents each user in the global authorizations file
+type Authorization struct {
+	Name        string `xml:"Name"`
+	KeyID       string `xml:"KEY_ID"`
+	SecretKey   string `xml:"SECRET_KEY"`
+	DateCreated string `xml:"Date_Created"`
+}
+
+// Authorizations represents the structure of the authorizations XML
+type Authorizations struct {
+	XMLName       xml.Name        `xml:"Authorizations"`
+	Authorization []Authorization `xml:"Authorization"`
+}
+
+// Permissions represents the structure of the bucket-specific permissions file
+type Permissions struct {
+	XMLName xml.Name `xml:"permissions"`
+	Read    string   `xml:"read"`
+	Write   string   `xml:"write"`
+	Grants  []string `xml:"grants>grant"`
+}
 
 func CreateBucket(bucket string) error {
 	// Define the file path for the object in the bucket
@@ -48,7 +73,19 @@ func CreateBucket(bucket string) error {
 	defer permissionsFile.Close()
 
 	// Write default permissions to the file
-	_, err = permissionsFile.WriteString("<permissions>\n  <read>public</read>\n  <write>private</write>\n</permissions>\n")
+	permissions := types.Permissions{
+		AllowGlobalRead:  false,
+		AllowGlobalWrite: false,
+		Grants:           []string{},
+	}
+
+	permissionsXML, err := xml.MarshalIndent(permissions, "", "  ")
+	if err != nil {
+		log.Println("Error marshalling permissions to XML:", err)
+		return fmt.Errorf("error marshalling permissions to XML: %v", err)
+	}
+
+	_, err = permissionsFile.WriteString(string(permissionsXML))
 	if err != nil {
 		log.Println("Error writing to permissions file:", err)
 		return fmt.Errorf("error writing to permissions file: %v", err)

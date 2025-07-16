@@ -37,3 +37,13 @@ func SendXML(w http.ResponseWriter, statusCode int, code, message, requestId, ho
 	// Write the XML response to the client
 	w.Write(xmlData)
 }
+
+func SendAccessDeniedXML(w http.ResponseWriter, requestID *string, hostID *string) {
+	if requestID == nil {
+		requestID = new(string)
+	}
+	if hostID == nil {
+		hostID = new(string)
+	}
+	SendXML(w, http.StatusForbidden, "AccessDenied", "Access Denied", *requestID, *hostID)
+}
