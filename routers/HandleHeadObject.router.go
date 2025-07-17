@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aidenappl/openbucket-go/metadata"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
+	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
 )
 
@@ -50,7 +50,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var meta metadata.Metadata
+	var meta types.ObjectMetadata
 	metaPath := objPath + ".obmeta"
 	if f, err := os.Open(metaPath); err == nil {
 		_ = xml.NewDecoder(f).Decode(&meta)
@@ -65,6 +65,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	if meta.ETag != "" {
 		w.Header().Set("ETag", meta.ETag)
 	}
+	// w.Header().Set("X-Amz-Meta-Owner-Id", meta.Owner)
 
 	w.WriteHeader(http.StatusOK)
 }

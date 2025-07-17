@@ -5,11 +5,25 @@ import (
 	"time"
 )
 
-type ObjectContent struct {
-	Key          string  `xml:"Key"`
-	LastModified IsoTime `xml:"LastModified"`
-	ETag         string  `xml:"ETag,omitempty"`
-	Size         int64   `xml:"Size"`
+type ObjectMetadata struct {
+	ETag   string `xml:"ETag" json:"etag"`
+	Bucket string `xml:"Bucket" json:"bucket"`
+	Key    string `xml:"Key" json:"key"`
+	Tags   struct {
+		Tag []string `xml:"Tag" json:"tag"`
+	} `xml:"Tags" json:"tags"`
+	VersionId         string      `xml:"VersionId" json:"versionId"`
+	PreviousVersionId string      `xml:"PreviousVersionId,omitempty" json:"previousVersionId,omitempty"`
+	Owner             OwnerObject `xml:"Owner" json:"owner"`
+	Public            bool        `xml:"Public" json:"public"`
+	Size              int64       `xml:"Size" json:"size"`
+	LastModified      IsoTime     `xml:"LastModified" json:"lastModified"`
+	UploadedAt        IsoTime     `xml:"UploadedAt" json:"uploadedAt"`
+}
+
+type OwnerObject struct {
+	ID          string `xml:"ID" json:"id"`
+	DisplayName string `xml:"DisplayName" json:"displayName"`
 }
 
 type CommonPrefix struct {
@@ -18,14 +32,14 @@ type CommonPrefix struct {
 }
 
 type ObjectList struct {
-	XMLName        xml.Name        `xml:"ListBucketResult"`
-	Name           string          `xml:"Name"`
-	Prefix         string          `xml:"Prefix"`
-	Delimiter      string          `xml:"Delimiter,omitempty"`
-	MaxKeys        int             `xml:"MaxKeys"`
-	IsTruncated    bool            `xml:"IsTruncated"`
-	Contents       []ObjectContent `xml:"Contents"`
-	CommonPrefixes []CommonPrefix  `xml:"CommonPrefixes,omitempty"`
+	XMLName        xml.Name         `xml:"ListBucketResult"`
+	Name           string           `xml:"Name"`
+	Prefix         string           `xml:"Prefix"`
+	Delimiter      string           `xml:"Delimiter,omitempty"`
+	MaxKeys        int              `xml:"MaxKeys"`
+	IsTruncated    bool             `xml:"IsTruncated"`
+	Contents       []ObjectMetadata `xml:"Contents"`
+	CommonPrefixes []CommonPrefix   `xml:"CommonPrefixes,omitempty"`
 }
 
 type IsoTime time.Time

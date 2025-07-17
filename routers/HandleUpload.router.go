@@ -76,6 +76,13 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	stat, err := file.Stat()
+	if err != nil {
+		http.Error(w, "Unable to get file info", http.StatusInternalServerError)
+		log.Println("Error getting file info:", err)
+		return
+	}
+
 	_, err = io.Copy(file, r.Body)
 	if err != nil {
 		http.Error(w, "Error saving file", http.StatusInternalServerError)
@@ -90,7 +97,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := metadata.New(bucket, key, etag, false, user.KeyID)
+	metadata := metadata.New(bucket, key, etag, false, user.KeyID, stat.Size())
 
 	metadataFilePath := filePath + ".obmeta"
 	metadataFile, err := os.Create(metadataFilePath)

@@ -119,7 +119,7 @@ func listObjects(cmd *cobra.Command, args []string) error {
 
 	for _, o := range objs {
 		typ := "FILE"
-		size := fmt.Sprintf("%d", o.Size)
+		size := fmt.Sprintf("%d", 0)
 
 		if strings.HasSuffix(o.Key, "/") {
 			typ = "DIR"

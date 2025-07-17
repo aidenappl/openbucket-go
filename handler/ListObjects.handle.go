@@ -10,17 +10,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/aidenappl/openbucket-go/metadata"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func ListObjects(bucket string) ([]types.ObjectContent, error) {
+func ListObjects(bucket string) ([]types.ObjectMetadata, error) {
 	root := filepath.Join("buckets", bucket)
 	if st, err := os.Stat(root); err != nil || !st.IsDir() {
 		return nil, fmt.Errorf("bucket %q not found", bucket)
 	}
 
-	var out []types.ObjectContent
+	var out []types.ObjectMetadata
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -35,37 +34,37 @@ func ListObjects(bucket string) ([]types.ObjectContent, error) {
 		}
 
 		rel, _ := filepath.Rel(root, path)
-		rel = filepath.ToSlash(rel)
-		key := rel
+		key := filepath.ToSlash(rel)
+
+		// Handle directory keys
 		if d.IsDir() {
 
 			st, _ := os.Stat(path)
-			out = append(out, types.ObjectContent{
+			out = append(out, types.ObjectMetadata{
 				Key:          key + "/",
 				LastModified: types.IsoTime(st.ModTime()),
-				Size:         0,
 			})
 			return nil
 		}
 
+		// Skip metadata files
 		if strings.HasSuffix(d.Name(), ".obmeta") {
 			return nil
 		}
 
 		st, _ := os.Stat(path)
-		oc := types.ObjectContent{
+		oc := types.ObjectMetadata{
 			Key:          key,
-			LastModified: types.IsoTime(st.ModTime()),
 			Size:         st.Size(),
+			LastModified: types.IsoTime(st.ModTime()),
 		}
 
 		metaPath := path + ".obmeta"
 		if f, err := os.Open(metaPath); err == nil {
 			defer f.Close()
-			var m metadata.Metadata
+			var m types.ObjectMetadata
 			if err := xml.NewDecoder(f).Decode(&m); err == nil {
 				oc.ETag = m.ETag
-				oc.LastModified = types.IsoTime(m.LastModified)
 			}
 		}
 		out = append(out, oc)
@@ -88,7 +87,7 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 	}
 
 	var (
-		contents []types.ObjectContent
+		contents []types.ObjectMetadata
 		cpMap    = make(map[string]struct{})
 	)
 
@@ -105,7 +104,6 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 
 				continue
 			}
-			//--------------------------------------------------------------------
 
 			if i := strings.IndexByte(trim, '/'); i != -1 {
 				cpMap[prefix+trim[:i+1]] = struct{}{}
