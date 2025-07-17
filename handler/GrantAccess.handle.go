@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/types"
 )
 
 func GrantAccess(bucketName string, keyID string) error {
@@ -36,7 +37,7 @@ func GrantAccess(bucketName string, keyID string) error {
 		return fmt.Errorf("keyID %s is not valid", keyID)
 	}
 
-	permissions.Grants = append(permissions.Grants, auth.NewGrant(keyID))
+	permissions.Grants = append(permissions.Grants, auth.NewGrant(keyID, types.READ))
 
 	err = auth.UpdatePermissions(bucketName, permissions)
 	if err != nil {

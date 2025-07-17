@@ -24,8 +24,9 @@ type Permissions struct {
 }
 
 type Grant struct {
-	KeyID     string    `xml:"keyID"`
-	DateAdded time.Time `xml:"date_added"`
+	KeyID     string     `xml:"keyID"`
+	ACL       Permission `xml:"acl"`
+	DateAdded time.Time  `xml:"date_added"`
 }
 
 type Metadata struct {

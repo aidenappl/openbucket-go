@@ -85,7 +85,7 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		if permissions != nil && permissions.AllowGlobalWrite && isWriteRoute(r) ||
 			permissions != nil && permissions.AllowGlobalRead && isReadRoute(r) ||
 			metadata != nil && metadata.Public && isReadRoute(r) {
-
+			log.Println("Bypassing permissions check due to global or public access")
 			r = r.WithContext(ctx)
 			handler(w, r)
 			return
@@ -98,8 +98,8 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if bucket != "" && key != "" {
-
+		// Validate signature if accessing within bucket
+		if bucket != "" {
 			authorized, err := auth.CheckUserPermissions(keyID, bucket)
 			if err != nil {
 				responder.SendAccessDeniedXML(w, &requestID, &hostID)
@@ -107,6 +107,16 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 			if authorized != nil {
+				if isWriteRoute(r) && types.IsWritePermission(authorized.ACL) {
+					responder.SendAccessDeniedXML(w, &requestID, &hostID)
+					log.Printf("Forbidden: User %s does not have write permission for bucket %s", keyID, bucket)
+					return
+				}
+				if isReadRoute(r) && !types.IsReadPermission(authorized.ACL) {
+					responder.SendAccessDeniedXML(w, &requestID, &hostID)
+					log.Printf("Forbidden: User %s does not have read permission for bucket %s", keyID, bucket)
+					return
+				}
 				ctx = context.WithValue(ctx, SessionContextKey, authorized)
 			} else {
 				responder.SendAccessDeniedXML(w, &requestID, &hostID)
@@ -114,7 +124,6 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		} else {
-
 			authorized, err := auth.CheckUserExists(keyID)
 			if err != nil {
 				responder.SendAccessDeniedXML(w, &requestID, &hostID)

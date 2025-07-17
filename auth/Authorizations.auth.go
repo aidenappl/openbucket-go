@@ -40,7 +40,7 @@ func CheckUserExists(keyID string) (*types.Authorization, error) {
 	return nil, nil
 }
 
-func CheckUserPermissions(keyID, bucketName string) (*types.Authorization, error) {
+func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
 
 	authorizations, err := LoadAuthorizations()
 	if err != nil {
@@ -67,7 +67,7 @@ func CheckUserPermissions(keyID, bucketName string) (*types.Authorization, error
 
 	for _, grant := range permissions.Grants {
 		if grant.KeyID == keyID {
-			return authorization, nil
+			return &grant, nil
 		}
 	}
 

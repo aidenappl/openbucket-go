@@ -16,25 +16,21 @@ func CreateBucket(bucket string) error {
 
 	_, err := os.Stat(filePath)
 	if os.IsExist(err) {
-
 		log.Println("Bucket already exists:", bucket)
 		return fmt.Errorf("bucket already exists: %s", bucket)
 	} else if os.IsNotExist(err) {
-
 		log.Println("Creating bucket:", bucket)
-
 		if err := os.MkdirAll(filepath.Join("buckets"), os.ModePerm); err != nil {
 			log.Println("Error creating buckets directory:", err)
 			return fmt.Errorf("error creating buckets directory: %v", err)
 		}
-
+		
 		err = os.Mkdir(filePath, os.ModePerm)
 		if err != nil {
 			log.Println("Error creating bucket directory:", err)
 			return fmt.Errorf("failed to create bucket: %v", err)
 		}
 	} else if err != nil {
-
 		log.Println("Error accessing file:", err)
 		return fmt.Errorf("error accessing file: %v", err)
 	}

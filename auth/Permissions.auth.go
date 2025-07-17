@@ -28,9 +28,10 @@ func LoadPermissions(bucketName string) (*types.Permissions, error) {
 	return &permissions, nil
 }
 
-func NewGrant(keyID string) types.Grant {
+func NewGrant(keyID string, acl types.Permission) types.Grant {
 	return types.Grant{
 		KeyID:     keyID,
+		ACL:       acl,
 		DateAdded: time.Now(),
 	}
 }

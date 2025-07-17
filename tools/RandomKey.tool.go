@@ -7,7 +7,7 @@ import (
 
 func GenerateRandomKey(length int) string {
 
-	const allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	const allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 	result := make([]byte, length)
 
