@@ -36,10 +36,14 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		var permissions *types.Permissions
 		var metadata *types.Metadata
 
+		// Get request and host id from context
+		requestID := GetRequestID(r)
+		hostID := GetHostID(r)
+
 		if bucket != "" {
 			perms, err := auth.LoadPermissions(bucket)
 			if err != nil {
-				responder.SendAccessDeniedXML(w, nil, nil)
+				responder.SendAccessDeniedXML(w, &requestID, &hostID)
 				log.Println("Error loading permissions for bucket:", bucket, err)
 				return
 			}
@@ -55,7 +59,7 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 
 				metadataFile, err := os.Open(metadataFilePath)
 				if err != nil {
-					responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to open .obmeta file", "", "")
+					responder.SendAccessDeniedXML(w, &requestID, &hostID)
 					log.Println("Error opening .obmeta file:", err)
 					return
 				}
@@ -63,7 +67,7 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 
 				decoder := xml.NewDecoder(metadataFile)
 				if err := decoder.Decode(&metadata); err != nil {
-					responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Error parsing metadata XML", "", "")
+					responder.SendAccessDeniedXML(w, &requestID, &hostID)
 					log.Println("Error parsing .obmeta XML:", err)
 					return
 				}
@@ -73,7 +77,7 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		}
 
 		if strings.HasSuffix(key, ".obmeta") {
-			responder.SendAccessDeniedXML(w, nil, nil)
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
 			log.Println("Attempted to access metadata file directly:", key)
 			return
 		}
@@ -89,7 +93,7 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 
 		keyID, err := GetAccessKeyFromRequest(r)
 		if err != nil {
-			responder.SendXML(w, http.StatusUnauthorized, "Unauthorized", "Missing or invalid access key", "", "")
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
 			log.Println("Unauthorized: Missing or invalid access key")
 			return
 		}
@@ -98,14 +102,14 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 
 			authorized, err := auth.CheckUserPermissions(keyID, bucket)
 			if err != nil {
-				responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to check user permissions", "", "")
+				responder.SendAccessDeniedXML(w, &requestID, &hostID)
 				log.Println("Error checking user permissions:", err)
 				return
 			}
 			if authorized != nil {
 				ctx = context.WithValue(ctx, SessionContextKey, authorized)
 			} else {
-				responder.SendXML(w, http.StatusForbidden, "Forbidden", "You do not have permission", "", "")
+				responder.SendAccessDeniedXML(w, &requestID, &hostID)
 				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
 				return
 			}
@@ -113,14 +117,14 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 
 			authorized, err := auth.CheckUserExists(keyID)
 			if err != nil {
-				responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to check user permissions", "", "")
+				responder.SendAccessDeniedXML(w, &requestID, &hostID)
 				log.Println("Error checking user permissions:", err)
 				return
 			}
 			if authorized != nil {
 				ctx = context.WithValue(ctx, SessionContextKey, authorized)
 			} else {
-				responder.SendXML(w, http.StatusForbidden, "Forbidden", "You do not have permission", "", "")
+				responder.SendAccessDeniedXML(w, &requestID, &hostID)
 				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
 				return
 			}

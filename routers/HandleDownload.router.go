@@ -23,20 +23,18 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	host := middleware.GetHostID(r)
 
 	if bucket == "" || key == "" {
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Bucket and key must be provided", "", "")
+		responder.SendAccessDeniedXML(w, nil, nil)
 		log.Println(request, host, "Bucket or key is empty")
 		return
 	}
 
 	permissions := middleware.RetrievePermissions(r)
-
 	metadata := middleware.RetrieveMetadata(r)
-
 	session := middleware.RetrieveSession(r)
 
 	if !metadata.Public && !permissions.AllowGlobalRead && session == nil {
 		if !isValidPresignURL(r, bucket, key) {
-			responder.SendXML(w, http.StatusUnauthorized, "InvalidSignature", "The presigned URL is invalid or expired", "", "")
+			responder.SendAccessDeniedXML(w, &request, &host)
 			log.Println(request, host, "Invalid or expired presigned URL:", key)
 			return
 		}
@@ -46,11 +44,10 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 
 	file, err := os.Open(filePath)
 	if os.IsNotExist(err) {
-		responder.SendXML(w, http.StatusNotFound, "AccessDenied", "Access Denied", "", "")
+		responder.SendAccessDeniedXML(w, &request, &host)
 		return
 	} else if err != nil {
-
-		responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to retrieve file", "", "")
+		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Error opening file:", err)
 		return
 	}
@@ -58,7 +55,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Unable to get file info", "", "")
+		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Error getting file info:", err)
 		return
 	}
@@ -69,8 +66,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 
 	_, err = io.Copy(w, file)
 	if err != nil {
-
-		responder.SendXML(w, http.StatusInternalServerError, "InternalError", "Error transferring file", "", "")
+		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Error transferring file:", err)
 		return
 	}
@@ -79,7 +75,6 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func isValidPresignURL(r *http.Request, bucket, key string) bool {
-
 	request := middleware.GetRequestID(r)
 	host := middleware.GetHostID(r)
 	amzDate := r.URL.Query().Get("X-Amz-Date")
