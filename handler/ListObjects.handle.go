@@ -65,6 +65,7 @@ func ListObjects(bucket string) ([]types.ObjectMetadata, error) {
 			var m types.ObjectMetadata
 			if err := xml.NewDecoder(f).Decode(&m); err == nil {
 				oc.ETag = m.ETag
+				oc.Owner = m.Owner
 			}
 		}
 		out = append(out, oc)
@@ -101,7 +102,6 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 			trim = strings.TrimPrefix(trim, "/")
 
 			if trim == "" {
-
 				continue
 			}
 
