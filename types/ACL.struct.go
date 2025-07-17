@@ -10,6 +10,7 @@ const (
 	READ_ACP     Permission = "READ_ACP"
 	WRITE_ACP    Permission = "WRITE_ACP"
 	FULL_CONTROL Permission = "FULL_CONTROL"
+	ACLUnknown   Permission = "ACL_UNKNOWN" // Default for unknown ACLs
 )
 
 // Resource distinguishes whether the permission applies to a bucket or an object.
@@ -71,4 +72,22 @@ func IsACLModification(p Permission) bool {
 // IsACLReading checks if the given permission is an ACL reading permission.
 func IsACLReading(p Permission) bool {
 	return p == READ_ACP || p == FULL_CONTROL
+}
+
+// AWSHeaderToACL converts an AWS S3 ACL header to a Permission.
+func AWSHeaderToACL(header string) Permission {
+	switch header {
+	case "x-amz-grant-read":
+		return READ
+	case "x-amz-grant-write":
+		return WRITE
+	case "x-amz-grant-read-acp":
+		return READ_ACP
+	case "x-amz-grant-write-acp":
+		return WRITE_ACP
+	case "x-amz-grant-full-control":
+		return FULL_CONTROL
+	default:
+		return ACLUnknown // Default to FULL_CONTROL if no specific header matches
+	}
 }
