@@ -6,12 +6,10 @@ import (
 )
 
 type ObjectMetadata struct {
-	ETag   string `xml:"ETag" json:"etag"`
-	Bucket string `xml:"Bucket" json:"bucket"`
-	Key    string `xml:"Key" json:"key"`
-	Tags   struct {
-		Tag []string `xml:"Tag" json:"tag"`
-	} `xml:"Tags" json:"tags"`
+	ETag              string      `xml:"ETag" json:"etag"`
+	Bucket            string      `xml:"Bucket" json:"bucket"`
+	Key               string      `xml:"Key" json:"key"`
+	Tags              []Tag       `xml:"Tags>Tag" json:"tags,omitempty"`
 	VersionId         string      `xml:"VersionId" json:"versionId"`
 	PreviousVersionId string      `xml:"PreviousVersionId,omitempty" json:"previousVersionId,omitempty"`
 	Owner             OwnerObject `xml:"Owner" json:"owner"`
@@ -19,6 +17,11 @@ type ObjectMetadata struct {
 	Size              int64       `xml:"Size" json:"size"`
 	LastModified      IsoTime     `xml:"LastModified" json:"lastModified"`
 	UploadedAt        IsoTime     `xml:"UploadedAt" json:"uploadedAt"`
+}
+
+type Tag struct {
+	Key   string `xml:"Key" json:"key"`
+	Value string `xml:"Value" json:"value"`
 }
 
 type OwnerObject struct {

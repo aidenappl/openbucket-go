@@ -8,10 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/aidenappl/openbucket-go/metadata"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/tools"
+	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
 )
 
@@ -97,7 +98,17 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata := metadata.New(bucket, key, etag, false, user.KeyID, stat.Size())
+	metadata := &types.ObjectMetadata{
+		ETag:         etag,
+		Key:          key,
+		Bucket:       bucket,
+		Owner:        types.OwnerObject{ID: user.KeyID, DisplayName: user.Name},
+		Public:       false,
+		LastModified: types.IsoTime(time.Now()),
+		UploadedAt:   types.IsoTime(time.Now()),
+		VersionId:    "1",
+		Size:         stat.Size(),
+	}
 
 	metadataFilePath := filePath + ".obmeta"
 	metadataFile, err := os.Create(metadataFilePath)

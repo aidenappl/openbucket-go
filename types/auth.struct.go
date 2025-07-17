@@ -27,15 +27,3 @@ type Grant struct {
 	ACL       Permission `xml:"acl"`
 	DateAdded time.Time  `xml:"date_added"`
 }
-
-type Metadata struct {
-	ETag         string    `xml:"etag"`
-	Bucket       string    `xml:"bucket"`
-	Key          string    `xml:"key"`
-	Tags         string    `xml:"tags"`
-	VersionID    string    `xml:"versionId"`
-	Owner        string    `xml:"owner"`
-	Public       bool      `xml:"public"`
-	LastModified time.Time `xml:"lastModified"`
-	UploadedAt   time.Time `xml:"uploadedAt"`
-}

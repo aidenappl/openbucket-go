@@ -69,12 +69,13 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("ETag", metadata.ETag)
-	w.Header().Set("X-Amz-Meta-owner-id", metadata.Owner)
+	w.Header().Set("X-Amz-Meta-owner-id", metadata.Owner.ID)
+	w.Header().Set("X-Amz-Meta-owner-display-name", metadata.Owner.DisplayName)
 	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 	w.Header().Set("Content-Type", tools.ContentType(filePath))
 	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))
 	w.Header().Set("x-amz-tagging-count", strconv.Itoa(len(metadata.Tags)))
-	w.Header().Set("x-amz-version-id", metadata.VersionID)
+	w.Header().Set("x-amz-version-id", metadata.VersionId)
 
 	_, err = io.Copy(w, file)
 	if err != nil {

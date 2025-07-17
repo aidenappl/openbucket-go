@@ -119,7 +119,7 @@ func loadBucketPermissions(bucket string) (*types.Permissions, error) {
 }
 
 // loadObjectMetadata loads the metadata for the specified object.
-func loadObjectMetadata(bucket, key string) (*types.Metadata, error) {
+func loadObjectMetadata(bucket, key string) (*types.ObjectMetadata, error) {
 	if bucket == "" || key == "" {
 		return nil, nil
 	}
@@ -130,7 +130,7 @@ func loadObjectMetadata(bucket, key string) (*types.Metadata, error) {
 	}
 	defer f.Close()
 
-	var md types.Metadata
+	var md types.ObjectMetadata
 	if err := xml.NewDecoder(f).Decode(&md); err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func isFastPathAllowed(perms *types.Permissions, ctx context.Context, r *http.Re
 
 	// Object‑level public flag
 	if mdRaw := r.Context().Value(MetadataContextKey); mdRaw != nil && isReadRoute(r) {
-		if md, ok := mdRaw.(*types.Metadata); ok && md.Public {
+		if md, ok := mdRaw.(*types.ObjectMetadata); ok && md.Public {
 			return true
 		}
 	}
@@ -243,8 +243,8 @@ func RetrievePermissions(r *http.Request) *types.Permissions {
 }
 
 // RetrieveMetadata retrieves the metadata from the request context.
-func RetrieveMetadata(r *http.Request) *types.Metadata {
-	metadata, ok := r.Context().Value(MetadataContextKey).(*types.Metadata)
+func RetrieveMetadata(r *http.Request) *types.ObjectMetadata {
+	metadata, ok := r.Context().Value(MetadataContextKey).(*types.ObjectMetadata)
 	if !ok {
 		log.Println("Metadata not found in context")
 		return nil
