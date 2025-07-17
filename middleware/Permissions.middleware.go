@@ -53,6 +53,14 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 			ctx = context.WithValue(ctx, PermissionsContextKey, permissions)
 		}
 
+		if validateAWSSignature(r) {
+			log.Println("Valid AWS signature for request:", r.Method, r.URL.Path)
+		} else {
+			log.Println("Invalid AWS signature for request:", r.Method, r.URL.Path)
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
+			return
+		}
+
 		if key != "" {
 			metadataFilePath := filepath.Join("buckets", bucket, key+".obmeta")
 			if _, err := os.Stat(metadataFilePath); err == nil {
@@ -140,7 +148,6 @@ func Authorized(handler http.HandlerFunc) http.HandlerFunc {
 		}
 
 		r = r.WithContext(ctx)
-
 		handler(w, r)
 	}
 }
@@ -206,6 +213,29 @@ func RetrieveMetadata(r *http.Request) *types.Metadata {
 		return nil
 	}
 	return metadata
+}
+
+func RetrieveGrant(r *http.Request) *types.Grant {
+	permissions := RetrievePermissions(r)
+	if permissions == nil {
+		log.Println("No permissions found in context")
+		return nil
+	}
+
+	session := RetrieveSession(r)
+	if session == nil {
+		log.Println("No session found in context")
+		return nil
+	}
+
+	for _, grant := range permissions.Grants {
+		if grant.KeyID == session.KeyID {
+			return &grant
+		}
+	}
+
+	log.Println("No matching grant found for session:", session.KeyID)
+	return nil
 }
 
 func RetrieveSession(r *http.Request) *types.Authorization {

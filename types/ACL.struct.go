@@ -62,3 +62,13 @@ func IsWritePermission(p Permission) bool {
 func IsReadPermission(p Permission) bool {
 	return p == READ || p == READ_ACP || p == FULL_CONTROL
 }
+
+// IsACLModification checks if the given permission is an ACL modification permission.
+func IsACLModification(p Permission) bool {
+	return p == WRITE_ACP || p == FULL_CONTROL
+}
+
+// IsACLReading checks if the given permission is an ACL reading permission.
+func IsACLReading(p Permission) bool {
+	return p == READ_ACP || p == FULL_CONTROL
+}

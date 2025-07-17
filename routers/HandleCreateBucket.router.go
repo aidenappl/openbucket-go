@@ -1,9 +1,12 @@
 package routers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
 )
 
@@ -12,20 +15,23 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	// retrieve user grant from the request context
+	grant := middleware.RetrieveGrant(r)
+
 	// Check if any ACL headers are present
-	aclHeaders := map[string]func(string){
-		"x-amz-grant-full-control": handleNothing,
-		"x-amz-grant-read":         handleNothing,
-		"x-amz-grant-write":        handleNothing,
-		"x-amz-grant-read-acp":     handleNothing,
-		"x-amz-grant-write-acp":    handleNothing,
+	aclHeaders := []string{
+		"x-amz-grant-full-control",
+		"x-amz-grant-read",
+		"x-amz-grant-write",
+		"x-amz-grant-read-acp",
+		"x-amz-grant-write-acp",
 	}
 
 	var found bool
-	for name, handler := range aclHeaders {
+	for _, name := range aclHeaders {
 		if v := r.Header.Get(name); v != "" {
 			found = true
-			handler(v) // comment out if you truly don't support ACLs yet
+			handleGrant(name, v, grant)
 		}
 	}
 
@@ -48,7 +54,16 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Bucket created successfully"))
 }
 
-func handleNothing(value string) {
-	// This function intentionally does nothing.
-	// It is a placeholder for handling ACL headers if needed in the future.
+type ValidS3Grants struct {
+	ID string `json:"ID"`
+}
+
+func handleGrant(name, value string, grant *types.Grant) {
+	// Validate session has minimum permissions to handle ACL
+	if grant != nil && types.IsACLModification(grant.ACL) {
+		log.Println("Handling ACL header:", name, "with value:", value)
+	} else {
+		log.Println("User does not have permission to modify ACLs")
+		return
+	}
 }
