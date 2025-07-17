@@ -36,6 +36,35 @@ func NewGrant(keyID string, acl types.Permission) types.Grant {
 	}
 }
 
+func SaveNewGrant(bucketName string, grant *types.Grant) error {
+	permissions, err := LoadPermissions(bucketName)
+	if err != nil {
+		return fmt.Errorf("failed to load permissions: %v", err)
+	}
+
+	// Add the new grant to the permissions
+	permissions.Grants = append(permissions.Grants, *grant)
+
+	return UpdatePermissions(bucketName, permissions)
+}
+
+func UpdateGrant(bucketName string, grant *types.Grant) error {
+	permissions, err := LoadPermissions(bucketName)
+	if err != nil {
+		return fmt.Errorf("failed to load permissions: %v", err)
+	}
+
+	// Update the grant in the permissions
+	for i, existingGrant := range permissions.Grants {
+		if existingGrant.KeyID == grant.KeyID {
+			permissions.Grants[i] = *grant
+			break
+		}
+	}
+
+	return UpdatePermissions(bucketName, permissions)
+}
+
 func UpdatePermissions(bucketName string, permissions *types.Permissions) error {
 	permissionsFile := fmt.Sprintf("buckets/%s.obpermissions", bucketName)
 	file, err := os.Create(permissionsFile)

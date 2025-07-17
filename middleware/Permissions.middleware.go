@@ -50,11 +50,6 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			ctx = context.WithValue(ctx, PermissionsContextKey, perms)
 		}
 
-		if !validateAWSSignature(r) {
-			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)
-			return
-		}
-
 		if strings.HasSuffix(key, ".obmeta") {
 			deny("Attempted to access metadata file directly: "+key, nil)
 			return
@@ -68,6 +63,11 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 
 		if isFastPathAllowed(perms, ctx, r) {
 			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		if !validateAWSSignature(r) {
+			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)
 			return
 		}
 
@@ -125,10 +125,10 @@ func loadObjectMetadata(bucket, key string) (*types.Metadata, error) {
 
 func isFastPathAllowed(perms *types.Permissions, ctx context.Context, r *http.Request) bool {
 	if perms != nil {
-		if isWriteRoute(r) && perms.AllowGlobalWrite {
+		if isWriteRoute(r) && types.IsBucketACLWrite(perms.ACL) {
 			return true
 		}
-		if isReadRoute(r) && perms.AllowGlobalRead {
+		if isReadRoute(r) && types.IsBucketACLRead(perms.ACL) {
 			return true
 		}
 	}

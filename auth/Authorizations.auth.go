@@ -71,5 +71,5 @@ func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("user with KEY_ID %s does not have permission for bucket %s", keyID, bucketName)
+	return nil, nil
 }

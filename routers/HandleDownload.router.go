@@ -10,6 +10,7 @@ import (
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
+	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
 )
 
@@ -28,21 +29,14 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	permissions := middleware.RetrievePermissions(r)
-	metadata := middleware.RetrieveMetadata(r)
-	session := middleware.RetrieveSession(r)
-
-	if !metadata.Public && !permissions.AllowGlobalRead && session == nil {
-		if !isValidPresignURL(r, bucket, key) {
-			responder.SendAccessDeniedXML(w, &request, &host)
-			log.Println(request, host, "Invalid or expired presigned URL:", key)
-			return
-		}
-	}
-
 	filePath := filepath.Join("buckets", bucket, key)
-
 	file, err := os.Open(filePath)
+	if err != nil {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Error getting file info:", err)
+		return
+	}
+	fileInfo, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
 		responder.SendAccessDeniedXML(w, &request, &host)
 		return
@@ -50,13 +44,26 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Error opening file:", err)
 		return
+	} else if fileInfo.IsDir() {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "File is a directory, not a valid object:", filePath)
+		return
 	}
 	defer file.Close()
 
-	fileInfo, err := file.Stat()
-	if err != nil {
+	permissions := middleware.RetrievePermissions(r)
+	metadata := middleware.RetrieveMetadata(r)
+	session := middleware.RetrieveSession(r)
+
+	if !metadata.Public && !types.IsBucketACLRead(permissions.ACL) && session == nil {
+		if !isValidPresignURL(r, bucket, key) {
+			responder.SendAccessDeniedXML(w, &request, &host)
+			log.Println(request, host, "Invalid or expired presigned URL:", key)
+			return
+		}
+
 		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "Error getting file info:", err)
+		log.Println(request, host, "Access denied for bucket:", bucket, "key:", key)
 		return
 	}
 

@@ -49,9 +49,8 @@ func CreateBucket(bucket string) error {
 	defer permissionsFile.Close()
 
 	permissions := types.Permissions{
-		AllowGlobalRead:  false,
-		AllowGlobalWrite: false,
-		Grants:           []types.Grant{},
+		ACL:    types.BUCKET_ACLPrivate, // Default ACL for new buckets
+		Grants: []types.Grant{},
 	}
 
 	permissionsXML, err := xml.MarshalIndent(permissions, "", "  ")

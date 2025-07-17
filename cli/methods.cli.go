@@ -85,8 +85,8 @@ func permissions(cmd *cobra.Command, args []string) {
 	}
 
 	table0 := tablewriter.NewWriter(os.Stdout)
-	table0.Header([]string{"Global Read", "Global Write"})
-	table0.Append([]string{fmt.Sprintf("%t", permissions.AllowGlobalRead), fmt.Sprintf("%t", permissions.AllowGlobalWrite)})
+	table0.Header([]string{"Bucket ACL"})
+	table0.Append([]string{fmt.Sprintf("%s", permissions.ACL)})
 	table0.Render()
 
 	table1 := tablewriter.NewWriter(os.Stdout)

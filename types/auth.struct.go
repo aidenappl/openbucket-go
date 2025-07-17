@@ -18,9 +18,8 @@ type Authorizations struct {
 }
 
 type Permissions struct {
-	AllowGlobalRead  bool    `xml:"global_read"`
-	AllowGlobalWrite bool    `xml:"global_write"`
-	Grants           []Grant `xml:"grants>grant"`
+	ACL    Permission `xml:"acl"`
+	Grants []Grant    `xml:"grants>grant"`
 }
 
 type Grant struct {

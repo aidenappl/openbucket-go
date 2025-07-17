@@ -3,7 +3,7 @@ package types
 // ACL defines the structure of an Access Control List (ACL) in OpenBucket.
 type Permission string
 
-// Permission constants for bucket and object permissions.
+// Permission constants for object permissions.
 const (
 	READ         Permission = "READ"
 	WRITE        Permission = "WRITE"
@@ -11,6 +11,14 @@ const (
 	WRITE_ACP    Permission = "WRITE_ACP"
 	FULL_CONTROL Permission = "FULL_CONTROL"
 	ACLUnknown   Permission = "ACL_UNKNOWN" // Default for unknown ACLs
+)
+
+// Bucket ACL Types
+const (
+	BUCKET_ACLPrivate         Permission = "PRIVATE"           // Only the owner has full access
+	BUCKET_ACLPublicRead      Permission = "PUBLIC_READ"       // Public read access, owner has
+	BUCKET_ACLPublicWrite     Permission = "PUBLIC_WRITE"      // Public write access, owner has full access
+	BUCKET_ACLPublicReadWrite Permission = "PUBLIC_READ_WRITE" // Public read and write access,
 )
 
 // Resource distinguishes whether the permission applies to a bucket or an object.
@@ -90,4 +98,40 @@ func AWSHeaderToACL(header string) Permission {
 	default:
 		return ACLUnknown // Default to FULL_CONTROL if no specific header matches
 	}
+}
+
+// IsBucketACL checks if the given permission is a bucket ACL.
+func IsBucketACL(acl Permission) bool {
+	switch acl {
+	case BUCKET_ACLPrivate, BUCKET_ACLPublicRead, BUCKET_ACLPublicWrite, BUCKET_ACLPublicReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// ConvertToBucketACL converts a Permission to a bucket ACL.
+func ConvertToBucketACL(acl string) Permission {
+	switch acl {
+	case "private":
+		return BUCKET_ACLPrivate
+	case "public-read":
+		return BUCKET_ACLPublicRead
+	case "public-read-write":
+		return BUCKET_ACLPublicReadWrite
+	case "public-write":
+		return BUCKET_ACLPublicWrite
+	default:
+		return ACLUnknown // Default to ACLUnknown if no specific ACL matches
+	}
+}
+
+// func IsBucketACLRead checks if the given permission is a read permission for a bucket ACL.
+func IsBucketACLRead(acl Permission) bool {
+	return acl == BUCKET_ACLPublicRead || acl == BUCKET_ACLPublicReadWrite
+}
+
+// func IsBucketACLWrite checks if the given permission is a write permission for a bucket ACL.
+func IsBucketACLWrite(acl Permission) bool {
+	return acl == BUCKET_ACLPublicWrite || acl == BUCKET_ACLPublicReadWrite
 }
