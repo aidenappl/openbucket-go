@@ -3,6 +3,7 @@ package routers
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
@@ -54,14 +55,23 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Bucket created successfully"))
 }
 
-type ValidS3Grants struct {
-	ID string `json:"ID"`
-}
-
 func handleGrant(name, value string, grant *types.Grant) {
 	// Validate session has minimum permissions to handle ACL
 	if grant != nil && types.IsACLModification(grant.ACL) {
 		log.Println("Handling ACL header:", name, "with value:", value)
+		var id string
+		splitValue := strings.Split(value, ",")
+		for _, v := range splitValue {
+			if strings.HasPrefix(v, "id=") {
+				id = strings.TrimPrefix(v, "id=")
+			}
+		}
+		if id == "" {
+			log.Println("No valid ID found in ACL header value:", value)
+			return
+		}
+		// Lookup id and validate permissions
+		
 		return
 	} else {
 		log.Println("User does not have permission to modify ACLs")

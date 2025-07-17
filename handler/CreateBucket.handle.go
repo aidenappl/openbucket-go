@@ -14,7 +14,7 @@ func CreateBucket(bucket string) error {
 
 	filePath := filepath.Join("buckets", bucket)
 
-	_, err := os.Stat(filePath)
+	fileInfo, err := os.Stat(filePath)
 	if os.IsExist(err) {
 		log.Println("Bucket already exists:", bucket)
 		return fmt.Errorf("bucket already exists: %s", bucket)
@@ -24,7 +24,7 @@ func CreateBucket(bucket string) error {
 			log.Println("Error creating buckets directory:", err)
 			return fmt.Errorf("error creating buckets directory: %v", err)
 		}
-		
+
 		err = os.Mkdir(filePath, os.ModePerm)
 		if err != nil {
 			log.Println("Error creating bucket directory:", err)
@@ -33,6 +33,11 @@ func CreateBucket(bucket string) error {
 	} else if err != nil {
 		log.Println("Error accessing file:", err)
 		return fmt.Errorf("error accessing file: %v", err)
+	}
+
+	if fileInfo.IsDir() {
+		log.Println("Bucket already exists as a directory:", bucket)
+		return fmt.Errorf("bucket already exists as a directory: %s", bucket)
 	}
 
 	permissionsFile, err := os.Create(filePath + ".obpermissions")
