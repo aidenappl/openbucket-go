@@ -25,6 +25,7 @@ var PermissionsContextKey contextKey = "permissions"
 var MetadataContextKey contextKey = "metadata"
 var SessionContextKey contextKey = "session"
 
+// Authorized is a middleware that checks if the user is authorized to access the requested resource.
 func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -32,6 +33,7 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		requestID, hostID := GetRequestID(r), GetHostID(r)
 		ctx := r.Context()
 
+		// deny handles general access denial with logging
 		deny := func(msg string, err error) {
 			responder.SendAccessDeniedXML(w, &requestID, &hostID)
 			if err != nil {
@@ -41,6 +43,7 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
+		// Get the permissions for the bucket
 		perms, err := loadBucketPermissions(bucket)
 		if err != nil {
 			deny("Error loading permissions for bucket "+bucket, err)
@@ -50,10 +53,13 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			ctx = context.WithValue(ctx, PermissionsContextKey, perms)
 		}
 
+		// Deny access to metadata files directly
 		if strings.HasSuffix(key, ".obmeta") {
 			deny("Attempted to access metadata file directly: "+key, nil)
 			return
 		}
+
+		// Load object metadata if available
 		if md, err := loadObjectMetadata(bucket, key); err == nil {
 			ctx = context.WithValue(ctx, MetadataContextKey, md)
 		} else if !errors.Is(err, os.ErrNotExist) {
@@ -61,22 +67,26 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Do a fast path check for public access or ACL permissions
 		if isFastPathAllowed(perms, ctx, r) {
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
+		// Validate AWS signature if bypass is not enabled
 		if !validateAWSSignature(r) {
 			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)
 			return
 		}
 
+		// Extract the access key from the request
 		keyID, err := GetAccessKeyFromRequest(r)
 		if err != nil {
 			deny("Unauthorized: missing or invalid access key", nil)
 			return
 		}
 
+		// Check if the user exists
 		if bucket == "" {
 			session, err := auth.CheckUserExists(keyID)
 			if err != nil {
@@ -86,13 +96,16 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			ctx = context.WithValue(ctx, SessionContextKey, session)
 		}
 
+		// Authorize against the bucket ACL
 		session, err := authoriseByACL(keyID, bucket, r)
 		if err != nil {
 			deny("Forbidden: "+err.Error(), nil)
 			return
 		}
+		// Store the session in the context
 		ctx = context.WithValue(ctx, SessionContextKey, session)
 
+		// serve the request with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
@@ -105,6 +118,7 @@ func loadBucketPermissions(bucket string) (*types.Permissions, error) {
 	return auth.LoadPermissions(bucket)
 }
 
+// loadObjectMetadata loads the metadata for the specified object.
 func loadObjectMetadata(bucket, key string) (*types.Metadata, error) {
 	if bucket == "" || key == "" {
 		return nil, nil
@@ -123,6 +137,7 @@ func loadObjectMetadata(bucket, key string) (*types.Metadata, error) {
 	return &md, nil
 }
 
+// isFastPathAllowed checks if the request can be served without further permission checks
 func isFastPathAllowed(perms *types.Permissions, ctx context.Context, r *http.Request) bool {
 	if perms != nil {
 		if isWriteRoute(r) && types.IsBucketACLWrite(perms.ACL) {
@@ -143,6 +158,7 @@ func isFastPathAllowed(perms *types.Permissions, ctx context.Context, r *http.Re
 	return false
 }
 
+// authoriseByACL checks the user's permissions against the bucket ACL
 func authoriseByACL(keyID, bucket string, r *http.Request) (*types.Authorization, error) {
 	session, err := auth.CheckUserExists(keyID)
 	if err != nil {
@@ -169,6 +185,7 @@ func authoriseByACL(keyID, bucket string, r *http.Request) (*types.Authorization
 	return session, nil
 }
 
+// GetAccessKeyFromRequest extracts the access key from the request's Authorization header.
 func GetAccessKeyFromRequest(r *http.Request) (string, error) {
 
 	if env.BypassPermissions {
@@ -205,6 +222,7 @@ func GetAccessKeyFromRequest(r *http.Request) (string, error) {
 	return accessKey, nil
 }
 
+// validateAWSSignature checks if the request has a valid AWS signature.
 func validateAWSSignature(r *http.Request) bool {
 
 	authorizationHeader := r.Header.Get("Authorization")
@@ -214,6 +232,7 @@ func validateAWSSignature(r *http.Request) bool {
 	return aws.ValidateSignature(r, authorizationHeader, dateHeader, amzContentSHA256)
 }
 
+// RetrievePermissions retrieves the permissions from the request context.
 func RetrievePermissions(r *http.Request) *types.Permissions {
 	permissions, ok := r.Context().Value(PermissionsContextKey).(*types.Permissions)
 	if !ok {
@@ -223,6 +242,7 @@ func RetrievePermissions(r *http.Request) *types.Permissions {
 	return permissions
 }
 
+// RetrieveMetadata retrieves the metadata from the request context.
 func RetrieveMetadata(r *http.Request) *types.Metadata {
 	metadata, ok := r.Context().Value(MetadataContextKey).(*types.Metadata)
 	if !ok {
@@ -232,6 +252,7 @@ func RetrieveMetadata(r *http.Request) *types.Metadata {
 	return metadata
 }
 
+// RetrieveGrant retrieves the grant associated with the current session from the request context.
 func RetrieveGrant(r *http.Request) *types.Grant {
 	permissions := RetrievePermissions(r)
 	if permissions == nil {
@@ -255,6 +276,7 @@ func RetrieveGrant(r *http.Request) *types.Grant {
 	return nil
 }
 
+// RetrieveSession retrieves the session from the request context.
 func RetrieveSession(r *http.Request) *types.Authorization {
 	session, ok := r.Context().Value(SessionContextKey).(*types.Authorization)
 	if !ok {
@@ -264,6 +286,7 @@ func RetrieveSession(r *http.Request) *types.Authorization {
 	return session
 }
 
+// isReadRoute checks if the request method is a read operation (GET or HEAD).
 func isReadRoute(r *http.Request) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodHead:
@@ -273,6 +296,7 @@ func isReadRoute(r *http.Request) bool {
 	}
 }
 
+// isWriteRoute checks if the request method is a write operation (PUT, POST, DELETE).
 func isWriteRoute(r *http.Request) bool {
 	switch r.Method {
 	case http.MethodPut, http.MethodPost, http.MethodDelete:
