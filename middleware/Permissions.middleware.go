@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,132 +25,148 @@ var PermissionsContextKey contextKey = "permissions"
 var MetadataContextKey contextKey = "metadata"
 var SessionContextKey contextKey = "session"
 
-func Authorized(handler http.HandlerFunc) http.HandlerFunc {
+func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		vars := mux.Vars(r)
-		bucket := vars["bucket"]
-		key := vars["key"]
-
+		bucket, key := vars["bucket"], vars["key"]
+		requestID, hostID := GetRequestID(r), GetHostID(r)
 		ctx := r.Context()
 
-		var permissions *types.Permissions
-		var metadata *types.Metadata
-
-		// Get request and host id from context
-		requestID := GetRequestID(r)
-		hostID := GetHostID(r)
-
-		if bucket != "" {
-			perms, err := auth.LoadPermissions(bucket)
+		deny := func(msg string, err error) {
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
 			if err != nil {
-				responder.SendAccessDeniedXML(w, &requestID, &hostID)
-				log.Println("Error loading permissions for bucket:", bucket, err)
-				return
+				log.Printf("%s: %v", msg, err)
+			} else {
+				log.Println(msg)
 			}
-
-			permissions = perms
-
-			ctx = context.WithValue(ctx, PermissionsContextKey, permissions)
 		}
 
-		if validateAWSSignature(r) {
-			log.Println("Valid AWS signature for request:", r.Method, r.URL.Path)
-		} else {
-			log.Println("Invalid AWS signature for request:", r.Method, r.URL.Path)
-			responder.SendAccessDeniedXML(w, &requestID, &hostID)
+		perms, err := loadBucketPermissions(bucket)
+		if err != nil {
+			deny("Error loading permissions for bucket "+bucket, err)
 			return
 		}
+		if perms != nil {
+			ctx = context.WithValue(ctx, PermissionsContextKey, perms)
+		}
 
-		if key != "" {
-			metadataFilePath := filepath.Join("buckets", bucket, key+".obmeta")
-			if _, err := os.Stat(metadataFilePath); err == nil {
-
-				metadataFile, err := os.Open(metadataFilePath)
-				if err != nil {
-					responder.SendAccessDeniedXML(w, &requestID, &hostID)
-					log.Println("Error opening .obmeta file:", err)
-					return
-				}
-				defer metadataFile.Close()
-
-				decoder := xml.NewDecoder(metadataFile)
-				if err := decoder.Decode(&metadata); err != nil {
-					responder.SendAccessDeniedXML(w, &requestID, &hostID)
-					log.Println("Error parsing .obmeta XML:", err)
-					return
-				}
-
-				ctx = context.WithValue(ctx, MetadataContextKey, metadata)
-			}
+		if !validateAWSSignature(r) {
+			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)
+			return
 		}
 
 		if strings.HasSuffix(key, ".obmeta") {
-			responder.SendAccessDeniedXML(w, &requestID, &hostID)
-			log.Println("Attempted to access metadata file directly:", key)
+			deny("Attempted to access metadata file directly: "+key, nil)
+			return
+		}
+		if md, err := loadObjectMetadata(bucket, key); err == nil {
+			ctx = context.WithValue(ctx, MetadataContextKey, md)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			deny("Error loading object metadata", err)
 			return
 		}
 
-		if permissions != nil && permissions.AllowGlobalWrite && isWriteRoute(r) ||
-			permissions != nil && permissions.AllowGlobalRead && isReadRoute(r) ||
-			metadata != nil && metadata.Public && isReadRoute(r) {
-			log.Println("Bypassing permissions check due to global or public access")
-			r = r.WithContext(ctx)
-			handler(w, r)
+		if isFastPathAllowed(perms, ctx, r) {
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
 
 		keyID, err := GetAccessKeyFromRequest(r)
 		if err != nil {
-			responder.SendAccessDeniedXML(w, &requestID, &hostID)
-			log.Println("Unauthorized: Missing or invalid access key")
+			deny("Unauthorized: missing or invalid access key", nil)
 			return
 		}
 
-		// Validate signature if accessing within bucket
-		if bucket != "" {
-			authorized, err := auth.CheckUserPermissions(keyID, bucket)
+		if bucket == "" {
+			session, err := auth.CheckUserExists(keyID)
 			if err != nil {
-				responder.SendAccessDeniedXML(w, &requestID, &hostID)
-				log.Println("Error checking user permissions:", err)
+				deny("Unauthorized: "+err.Error(), nil)
 				return
 			}
-			if authorized != nil {
-				if isWriteRoute(r) && types.IsWritePermission(authorized.ACL) {
-					responder.SendAccessDeniedXML(w, &requestID, &hostID)
-					log.Printf("Forbidden: User %s does not have write permission for bucket %s", keyID, bucket)
-					return
-				}
-				if isReadRoute(r) && !types.IsReadPermission(authorized.ACL) {
-					responder.SendAccessDeniedXML(w, &requestID, &hostID)
-					log.Printf("Forbidden: User %s does not have read permission for bucket %s", keyID, bucket)
-					return
-				}
-				ctx = context.WithValue(ctx, SessionContextKey, authorized)
-			} else {
-				responder.SendAccessDeniedXML(w, &requestID, &hostID)
-				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
-				return
-			}
-		} else {
-			authorized, err := auth.CheckUserExists(keyID)
-			if err != nil {
-				responder.SendAccessDeniedXML(w, &requestID, &hostID)
-				log.Println("Error checking user permissions:", err)
-				return
-			}
-			if authorized != nil {
-				ctx = context.WithValue(ctx, SessionContextKey, authorized)
-			} else {
-				responder.SendAccessDeniedXML(w, &requestID, &hostID)
-				log.Printf("Forbidden: User %s does not have permission to access bucket %s", keyID, bucket)
-				return
-			}
+			ctx = context.WithValue(ctx, SessionContextKey, session)
 		}
 
-		r = r.WithContext(ctx)
-		handler(w, r)
+		session, err := authoriseByACL(keyID, bucket, r)
+		if err != nil {
+			deny("Forbidden: "+err.Error(), nil)
+			return
+		}
+		ctx = context.WithValue(ctx, SessionContextKey, session)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	}
+}
+
+// returns nil when bucket == "" (root routes)
+func loadBucketPermissions(bucket string) (*types.Permissions, error) {
+	if bucket == "" {
+		return nil, nil
+	}
+	return auth.LoadPermissions(bucket)
+}
+
+func loadObjectMetadata(bucket, key string) (*types.Metadata, error) {
+	if bucket == "" || key == "" {
+		return nil, nil
+	}
+	metaPath := filepath.Join("buckets", bucket, key+".obmeta")
+	f, err := os.Open(metaPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var md types.Metadata
+	if err := xml.NewDecoder(f).Decode(&md); err != nil {
+		return nil, err
+	}
+	return &md, nil
+}
+
+func isFastPathAllowed(perms *types.Permissions, ctx context.Context, r *http.Request) bool {
+	if perms != nil {
+		if isWriteRoute(r) && perms.AllowGlobalWrite {
+			return true
+		}
+		if isReadRoute(r) && perms.AllowGlobalRead {
+			return true
+		}
+	}
+
+	// Object‑level public flag
+	if mdRaw := r.Context().Value(MetadataContextKey); mdRaw != nil && isReadRoute(r) {
+		if md, ok := mdRaw.(*types.Metadata); ok && md.Public {
+			return true
+		}
+	}
+
+	return false
+}
+
+func authoriseByACL(keyID, bucket string, r *http.Request) (*types.Authorization, error) {
+	session, err := auth.CheckUserExists(keyID)
+	if err != nil {
+		return nil, err
+	}
+	if session == nil {
+		return nil, fmt.Errorf("user with KEY_ID %s not found", keyID)
+	}
+
+	userACL, err := auth.CheckUserPermissions(keyID, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if userACL == nil {
+		return nil, fmt.Errorf("user %s has no ACL for bucket %s", keyID, bucket)
+	}
+
+	switch {
+	case isWriteRoute(r) && !types.IsWritePermission(userACL.ACL):
+		return nil, fmt.Errorf("user %s lacks write permission on bucket %s", keyID, bucket)
+	case isReadRoute(r) && !types.IsReadPermission(userACL.ACL):
+		return nil, fmt.Errorf("user %s lacks read permission on bucket %s", keyID, bucket)
+	}
+	return session, nil
 }
 
 func GetAccessKeyFromRequest(r *http.Request) (string, error) {

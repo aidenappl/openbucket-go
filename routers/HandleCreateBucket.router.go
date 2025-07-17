@@ -62,6 +62,7 @@ func handleGrant(name, value string, grant *types.Grant) {
 	// Validate session has minimum permissions to handle ACL
 	if grant != nil && types.IsACLModification(grant.ACL) {
 		log.Println("Handling ACL header:", name, "with value:", value)
+		return
 	} else {
 		log.Println("User does not have permission to modify ACLs")
 		return

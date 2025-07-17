@@ -9,7 +9,7 @@
     </grant>
     <grant>
       <keyID>GK8c1e3301dca0ade2aa1c1a05</keyID>
-      <acl>READ</acl>
+      <acl>WRITE_ACP</acl>
       <date_added>2025-07-17T12:54:17.106839-04:00</date_added>
     </grant>
   </grants>
