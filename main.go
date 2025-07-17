@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/aidenappl/openbucket-go/cli"
+	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/routers"
 	"github.com/gorilla/mux"
@@ -33,8 +34,9 @@ func startServer() {
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
 
-	log.Println("Server started at http://localhost:8080")
-	err := http.ListenAndServe(":8080", r)
+	// Start the server
+	log.Println("✅ Server started at http://localhost:" + env.Port)
+	err := http.ListenAndServe(":"+env.Port, r)
 	if err != nil {
 		log.Fatal("Error starting server:", err)
 	}

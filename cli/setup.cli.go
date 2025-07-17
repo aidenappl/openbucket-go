@@ -10,6 +10,8 @@ import (
 func SetupCLI() {
 	var rootCmd = &cobra.Command{Use: "openbucket"}
 
+	// `openbucket create-bucket [bucket_name]`
+	// This command creates a new bucket with the specified name.
 	var createCmd = &cobra.Command{
 		Use:   "create-bucket [bucket_name]",
 		Short: "Create a new bucket",
@@ -18,6 +20,8 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(createCmd)
 
+	// `openbucket generate-credentials`
+	// This command generates new credentials.
 	var credentialsCmd = &cobra.Command{
 		Use:   "generate-credentials",
 		Short: "Generate new credentials",
@@ -25,6 +29,8 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(credentialsCmd)
 
+	// `openbucket grant [bucket_name] [key_id]`
+	// This command grants access to a bucket for a user identified by key_id.
 	var grantCmd = &cobra.Command{
 		Use:   "grant [bucket_name] [key_id]",
 		Short: "Grant access to a bucket for a user",
@@ -33,6 +39,8 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(grantCmd)
 
+	// `openbucket list-buckets`
+	// This command lists all buckets or the buckets accessible by a specific user.
 	var listBucketsCmd = &cobra.Command{
 		Use:   "list-buckets",
 		Short: "List all buckets",
@@ -40,6 +48,8 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(listBucketsCmd)
 
+	// `openbucket permissions [bucket_name]`
+	// This command shows the permissions for a specific bucket.
 	var permissionsCmd = &cobra.Command{
 		Use:   "permissions [bucket_name]",
 		Short: "Show permissions for a bucket",
@@ -48,6 +58,8 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(permissionsCmd)
 
+	// `openbucket list-objects [bucket_name]`
+	// This command lists objects in a specified bucket, with optional flags for prefix and delimiter.
 	var listObjectsCmd = &cobra.Command{
 		Use:   "list-objects [bucket]",
 		Short: "List objects (and folders) in a bucket",
@@ -61,6 +73,8 @@ func SetupCLI() {
 
 	rootCmd.AddCommand(listObjectsCmd)
 
+	// `openbucket list-credentials`
+	// This command lists all credentials.
 	var listCredentialsCmd = &cobra.Command{
 		Use:   "list-credentials",
 		Short: "List all credentials",

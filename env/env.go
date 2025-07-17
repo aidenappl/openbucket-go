@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	Port              = getEnv("PORT", "8080")
 	BypassPermissions = getEnv("BYPASS_PERMISSIONS", "false") == "true"
 )
 
