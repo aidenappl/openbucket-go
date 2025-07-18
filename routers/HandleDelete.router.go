@@ -1,7 +1,6 @@
 package routers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -30,5 +29,5 @@ func HandleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-	fmt.Printf("Deleted object: %s\n", filePath)
+	log.Printf("Successfully deleted object %s from bucket %s", key, bucket)
 }

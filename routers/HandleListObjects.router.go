@@ -2,7 +2,6 @@ package routers
 
 import (
 	"encoding/xml"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -55,8 +54,6 @@ func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucket string) {
 		policy.AccessControlList[i].XmlnsXsi = types.XsiNS
 		policy.AccessControlList[i].Grantee.Type = "CanonicalUser"
 	}
-
-	fmt.Println(policy)
 
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(http.StatusOK)
