@@ -60,13 +60,13 @@ func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
 		return nil, fmt.Errorf("user with KEY_ID %s not found in authorizations", keyID)
 	}
 
-	permissions, err := LoadPermissions(bucketName)
+	permissions, err := LoadBucketPermissions(bucketName)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, grant := range permissions.Grants {
-		if grant.KeyID == keyID {
+		if grant.Grantee.ID == keyID {
 			return &grant, nil
 		}
 	}

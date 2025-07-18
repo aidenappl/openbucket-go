@@ -22,7 +22,10 @@ func createBucket(cmd *cobra.Command, args []string) {
 	bucketName := args[0]
 	fmt.Printf("Creating bucket: %s\n", bucketName)
 
-	err := handler.CreateBucket(bucketName)
+	err := handler.CreateBucket(bucketName, types.UserObject{
+		ID:          "OPENBUCKET_CLI",
+		DisplayName: "OpenBucket CLI",
+	})
 	if err != nil {
 		log.Println("Error creating bucket:", err)
 		return
@@ -100,7 +103,7 @@ func grant(cmd *cobra.Command, args []string) {
 
 func permissions(cmd *cobra.Command, args []string) {
 	bucketName := args[0]
-	permissions, err := auth.LoadPermissions(bucketName)
+	permissions, err := auth.LoadBucketPermissions(bucketName)
 	if err != nil {
 		fmt.Println("Error getting bucket permissions:", err)
 		return

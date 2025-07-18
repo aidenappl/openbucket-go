@@ -102,7 +102,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		ETag:         etag,
 		Key:          key,
 		Bucket:       bucket,
-		Owner:        types.OwnerObject{ID: user.KeyID, DisplayName: user.Name},
+		Owner:        types.UserObject{ID: user.KeyID, DisplayName: user.Name},
 		Public:       false,
 		LastModified: types.IsoTime(time.Now()),
 		UploadedAt:   types.IsoTime(time.Now()),

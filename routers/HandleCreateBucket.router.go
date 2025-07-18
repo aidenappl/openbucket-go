@@ -75,7 +75,10 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := handler.CreateBucket(bucket); err != nil {
+	if err := handler.CreateBucket(bucket, types.UserObject{
+		ID:          grant.Grantee.ID,
+		DisplayName: grant.Grantee.DisplayName,
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -92,7 +95,7 @@ func handleGrant(name string, value string, bucket string, grant *types.Grant) e
 		return fmt.Errorf("unknown ACL header: %s", name)
 	}
 	// Validate session has minimum permissions to handle ACL
-	if grant != nil && types.IsACLModification(grant.ACL) {
+	if grant != nil && types.IsACLModification(grant.Permission) {
 		var id string
 		splitValue := strings.Split(value, ",")
 		for _, v := range splitValue {
@@ -125,20 +128,20 @@ func handleGrant(name string, value string, bucket string, grant *types.Grant) e
 
 		if destinationGrant != nil {
 			// Check if requested grant is higher than existing permissions
-			if destinationGrant.ACL == reqACL {
+			if destinationGrant.Permission == reqACL {
 				log.Println("User already has the requested permissions for bucket:", bucket)
 				return nil
 			}
 
 			// Update existing permissions
-			destinationGrant.ACL = reqACL
+			destinationGrant.Permission = reqACL
 			if err := auth.UpdateGrant(bucket, destinationGrant); err != nil {
 				log.Println("Error updating user permissions:", err)
 				return fmt.Errorf("error updating user permissions: %v", err)
 			}
 		} else {
 			// Create new grant
-			newGrant := auth.NewGrant(id, reqACL)
+			newGrant := auth.NewGrant(id, authorization.Name, reqACL)
 			if err := auth.SaveNewGrant(bucket, &newGrant); err != nil {
 				log.Println("Error creating new user permissions:", err)
 				return fmt.Errorf("error creating new user permissions: %v", err)

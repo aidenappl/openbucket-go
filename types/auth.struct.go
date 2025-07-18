@@ -16,14 +16,3 @@ type Authorizations struct {
 	XMLName        xml.Name        `xml:"Authorizations"`
 	Authorizations []Authorization `xml:"Authorization"`
 }
-
-type Permissions struct {
-	ACL    Permission `xml:"acl"`
-	Grants []Grant    `xml:"grants>grant"`
-}
-
-type Grant struct {
-	KeyID     string     `xml:"keyID"`
-	ACL       Permission `xml:"acl"`
-	DateAdded time.Time  `xml:"date_added"`
-}

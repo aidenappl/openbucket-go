@@ -12,14 +12,14 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("bucket name, key ID, and ACL must be provided")
 	}
 
-	permissions, err := auth.LoadPermissions(bucketName)
+	permissions, err := auth.LoadBucketPermissions(bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to load permissions for bucket %s: %v", bucketName, err)
 	}
 
 	var found bool
 	for _, grant := range permissions.Grants {
-		if grant.KeyID == keyID {
+		if grant.Grantee.ID == keyID {
 			found = true
 			break
 		}
@@ -46,8 +46,8 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 	}
 
 	for i, grant := range permissions.Grants {
-		if grant.KeyID == keyID {
-			permissions.Grants[i].ACL = acl
+		if grant.Grantee.ID == keyID {
+			permissions.Grants[i].Permission = acl
 			break
 		}
 	}
@@ -55,7 +55,7 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("no grants found for keyID %s in bucket %s", keyID, bucketName)
 	}
 
-	err = auth.UpdatePermissions(bucketName, permissions)
+	err = auth.UpdateBucketPermissions(bucketName, permissions)
 	if err != nil {
 		return fmt.Errorf("failed to save permissions for bucket %s: %v", bucketName, err)
 	}

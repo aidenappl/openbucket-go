@@ -1,10 +1,19 @@
-<Permissions>
-  <acl>PRIVATE</acl>
-  <grants>
-    <grant>
-      <keyID>GK8c1e3301dca0ade2aa1c1a05</keyID>
-      <acl>FULL_CONTROL</acl>
-      <date_added>2025-07-18T12:33:31.620146-04:00</date_added>
-    </grant>
-  </grants>
-</Permissions>
+<Bucket>
+  <Name>aplb</Name>
+  <CreationDate>0001-01-01T00:00:00.000Z</CreationDate>
+  <ACL>PRIVATE</ACL>
+  <Owner>
+    <ID>OPENBUCKET_CLI</ID>
+    <DisplayName>OpenBucket CLI</DisplayName>
+  </Owner>
+  <Grants>
+    <Grant>
+      <Grantee>
+        <ID>GK8c1e3301dca0ade2aa1c1a05</ID>
+        <DisplayName>Bob</DisplayName>
+        <DateAdded>2025-07-18T19:36:52.816Z</DateAdded>
+      </Grantee>
+      <Permission>FULL_CONTROL</Permission>
+    </Grant>
+  </Grants>
+</Bucket>

@@ -8,13 +8,13 @@ import (
 )
 
 func GrantAccess(bucketName string, keyID string, acl string) error {
-	permissions, err := auth.LoadPermissions(bucketName)
+	permissions, err := auth.LoadBucketPermissions(bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to load permissions for bucket %s: %v", bucketName, err)
 	}
 
 	for _, grant := range permissions.Grants {
-		if grant.KeyID == keyID {
+		if grant.Grantee.ID == keyID {
 			return fmt.Errorf("keyID %s already has access to bucket %s", keyID, bucketName)
 		}
 	}
@@ -23,20 +23,12 @@ func GrantAccess(bucketName string, keyID string, acl string) error {
 		acl = "READ"
 	}
 
-	authr, err := auth.LoadAuthorizations()
+	authr, err := auth.CheckUserExists(keyID)
 	if err != nil {
 		return fmt.Errorf("failed to load authorizations: %v", err)
 	}
 
-	valid := false
-	for _, cred := range authr.Authorizations {
-		if cred.KeyID == keyID {
-			valid = true
-			break
-		}
-	}
-
-	if !valid {
+	if authr == nil {
 		return fmt.Errorf("keyID %s is not valid", keyID)
 	}
 
@@ -45,9 +37,9 @@ func GrantAccess(bucketName string, keyID string, acl string) error {
 		return fmt.Errorf("invalid ACL type: %s", acl)
 	}
 
-	permissions.Grants = append(permissions.Grants, auth.NewGrant(keyID, grantType))
+	permissions.Grants = append(permissions.Grants, auth.NewGrant(keyID, authr.Name, grantType))
 
-	err = auth.UpdatePermissions(bucketName, permissions)
+	err = auth.UpdateBucketPermissions(bucketName, permissions)
 	if err != nil {
 		return fmt.Errorf("failed to save permissions for bucket %s: %v", bucketName, err)
 	}

@@ -3,7 +3,6 @@ package handler
 import (
 	"log"
 	"os"
-	"time"
 
 	"github.com/aidenappl/openbucket-go/types"
 )
@@ -48,7 +47,7 @@ func ListBuckets() (*[]types.Bucket, error) {
 			}
 			bucketList = append(bucketList, types.Bucket{
 				Name:         file.Name(),
-				CreationDate: info.ModTime().Format(time.RFC3339),
+				CreationDate: types.IsoTime(info.ModTime()),
 			})
 		}
 	}

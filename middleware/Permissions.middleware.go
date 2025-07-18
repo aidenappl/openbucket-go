@@ -44,7 +44,7 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Get the permissions for the bucket
-		perms, err := loadBucketPermissions(bucket)
+		perms, err := auth.LoadBucketPermissions(bucket)
 		if err != nil {
 			deny("Error loading permissions for bucket "+bucket, err)
 			return
@@ -110,14 +110,6 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// returns nil when bucket == "" (root routes)
-func loadBucketPermissions(bucket string) (*types.Permissions, error) {
-	if bucket == "" {
-		return nil, nil
-	}
-	return auth.LoadPermissions(bucket)
-}
-
 // loadObjectMetadata loads the metadata for the specified object.
 func loadObjectMetadata(bucket, key string) (*types.ObjectMetadata, error) {
 	if bucket == "" || key == "" {
@@ -138,7 +130,7 @@ func loadObjectMetadata(bucket, key string) (*types.ObjectMetadata, error) {
 }
 
 // isFastPathAllowed checks if the request can be served without further permission checks
-func isFastPathAllowed(perms *types.Permissions, ctx context.Context, r *http.Request) bool {
+func isFastPathAllowed(perms *types.Bucket, ctx context.Context, r *http.Request) bool {
 	if perms != nil {
 		if isWriteRoute(r) && types.IsBucketACLWrite(perms.ACL) {
 			return true
@@ -177,9 +169,9 @@ func authoriseByACL(keyID, bucket string, r *http.Request) (*types.Authorization
 	}
 
 	switch {
-	case isWriteRoute(r) && !types.IsWritePermission(userACL.ACL):
+	case isWriteRoute(r) && !types.IsWritePermission(userACL.Permission):
 		return nil, fmt.Errorf("user %s lacks write permission on bucket %s", keyID, bucket)
-	case isReadRoute(r) && !types.IsReadPermission(userACL.ACL):
+	case isReadRoute(r) && !types.IsReadPermission(userACL.Permission):
 		return nil, fmt.Errorf("user %s lacks read permission on bucket %s", keyID, bucket)
 	}
 	return session, nil
@@ -233,8 +225,8 @@ func validateAWSSignature(r *http.Request) bool {
 }
 
 // RetrievePermissions retrieves the permissions from the request context.
-func RetrievePermissions(r *http.Request) *types.Permissions {
-	permissions, ok := r.Context().Value(PermissionsContextKey).(*types.Permissions)
+func RetrievePermissions(r *http.Request) *types.Bucket {
+	permissions, ok := r.Context().Value(PermissionsContextKey).(*types.Bucket)
 	if !ok {
 		log.Println("Permissions not found in context")
 		return nil
@@ -267,7 +259,7 @@ func RetrieveGrant(r *http.Request) *types.Grant {
 	}
 
 	for _, grant := range permissions.Grants {
-		if grant.KeyID == session.KeyID {
+		if grant.Grantee.ID == session.KeyID {
 			return &grant
 		}
 	}

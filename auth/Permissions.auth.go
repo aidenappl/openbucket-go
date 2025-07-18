@@ -10,7 +10,7 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func LoadPermissions(bucketName string) (*types.Permissions, error) {
+func LoadBucketPermissions(bucketName string) (*types.Bucket, error) {
 	permissionsFile := fmt.Sprintf("buckets/%s.obpermissions", bucketName)
 	file, err := os.Open(permissionsFile)
 	if err != nil {
@@ -18,7 +18,7 @@ func LoadPermissions(bucketName string) (*types.Permissions, error) {
 	}
 	defer file.Close()
 
-	var permissions types.Permissions
+	var permissions types.Bucket
 	decoder := xml.NewDecoder(file)
 	err = decoder.Decode(&permissions)
 	if err != nil {
@@ -28,16 +28,19 @@ func LoadPermissions(bucketName string) (*types.Permissions, error) {
 	return &permissions, nil
 }
 
-func NewGrant(keyID string, acl types.Permission) types.Grant {
+func NewGrant(keyID string, displayName string, acl types.Permission) types.Grant {
 	return types.Grant{
-		KeyID:     keyID,
-		ACL:       acl,
-		DateAdded: time.Now(),
+		Permission: acl,
+		Grantee: types.Grantee{
+			ID:          keyID,
+			DisplayName: displayName, 
+			DateAdded:   types.IsoTime(time.Now()),
+		},
 	}
 }
 
 func SaveNewGrant(bucketName string, grant *types.Grant) error {
-	permissions, err := LoadPermissions(bucketName)
+	permissions, err := LoadBucketPermissions(bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to load permissions: %v", err)
 	}
@@ -45,27 +48,27 @@ func SaveNewGrant(bucketName string, grant *types.Grant) error {
 	// Add the new grant to the permissions
 	permissions.Grants = append(permissions.Grants, *grant)
 
-	return UpdatePermissions(bucketName, permissions)
+	return UpdateBucketPermissions(bucketName, permissions)
 }
 
 func UpdateGrant(bucketName string, grant *types.Grant) error {
-	permissions, err := LoadPermissions(bucketName)
+	permissions, err := LoadBucketPermissions(bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to load permissions: %v", err)
 	}
 
 	// Update the grant in the permissions
 	for i, existingGrant := range permissions.Grants {
-		if existingGrant.KeyID == grant.KeyID {
+		if existingGrant.Grantee.ID == grant.Grantee.ID {
 			permissions.Grants[i] = *grant
 			break
 		}
 	}
 
-	return UpdatePermissions(bucketName, permissions)
+	return UpdateBucketPermissions(bucketName, permissions)
 }
 
-func UpdatePermissions(bucketName string, permissions *types.Permissions) error {
+func UpdateBucketPermissions(bucketName string, permissions *types.Bucket) error {
 	permissionsFile := fmt.Sprintf("buckets/%s.obpermissions", bucketName)
 	file, err := os.Create(permissionsFile)
 	if err != nil {

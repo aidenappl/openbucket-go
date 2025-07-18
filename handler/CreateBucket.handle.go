@@ -2,43 +2,38 @@ package handler
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func CreateBucket(bucket string) error {
+func CreateBucket(bucket string, owner types.UserObject) error {
 
 	filePath := filepath.Join("buckets", bucket)
 
-	fileInfo, err := os.Stat(filePath)
-	if os.IsExist(err) {
+	// Does it already exist?
+	if fi, err := os.Stat(filePath); err == nil {
+		if !fi.IsDir() {
+			return fmt.Errorf("%s exists but is not a directory", filePath)
+		}
 		log.Println("Bucket already exists:", bucket)
 		return fmt.Errorf("bucket already exists: %s", bucket)
-	} else if os.IsNotExist(err) {
-		log.Println("Creating bucket:", bucket)
-		if err := os.MkdirAll(filepath.Join("buckets"), os.ModePerm); err != nil {
-			log.Println("Error creating buckets directory:", err)
-			return fmt.Errorf("error creating buckets directory: %v", err)
-		}
-
-		err = os.Mkdir(filePath, os.ModePerm)
-		if err != nil {
-			log.Println("Error creating bucket directory:", err)
-			return fmt.Errorf("failed to create bucket: %v", err)
-		}
-	} else if err != nil {
-		log.Println("Error accessing file:", err)
-		return fmt.Errorf("error accessing file: %v", err)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// real error
+		return fmt.Errorf("stat %s: %w", filePath, err)
 	}
 
-	if fileInfo.IsDir() {
-		log.Println("Bucket already exists as a directory:", bucket)
-		return fmt.Errorf("bucket already exists as a directory: %s", bucket)
+	// Parent(s) + bucket
+	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
+		return fmt.Errorf("create bucket %s: %w", bucket, err)
 	}
+
+	log.Println("Created bucket:", bucket)
 
 	permissionsFile, err := os.Create(filePath + ".obpermissions")
 	if err != nil {
@@ -48,9 +43,12 @@ func CreateBucket(bucket string) error {
 
 	defer permissionsFile.Close()
 
-	permissions := types.Permissions{
-		ACL:    types.BUCKET_ACLPrivate, // Default ACL for new buckets
-		Grants: []types.Grant{},
+	permissions := types.Bucket{
+		Name:         bucket,
+		Owner:        owner,
+		ACL:          types.BUCKET_ACLPrivate, // Default ACL for new buckets
+		Grants:       []types.Grant{},
+		CreationDate: types.IsoTime(time.Now()),
 	}
 
 	permissionsXML, err := xml.MarshalIndent(permissions, "", "  ")
