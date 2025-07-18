@@ -32,10 +32,11 @@ func NewGrant(keyID string, displayName string, acl types.Permission) types.Gran
 	return types.Grant{
 		Permission: acl,
 		Grantee: types.Grantee{
+			Type:        "CanonicalUser",
 			ID:          keyID,
-			DisplayName: displayName, 
-			DateAdded:   types.IsoTime(time.Now()),
+			DisplayName: displayName,
 		},
+		DateAdded: types.IsoTime(time.Now()),
 	}
 }
 

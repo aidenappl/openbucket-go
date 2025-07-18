@@ -8,12 +8,12 @@
   </Owner>
   <Grants>
     <Grant>
-      <Grantee>
+      <Grantee xsi:type="CanonicalUser">
         <ID>GK8c1e3301dca0ade2aa1c1a05</ID>
         <DisplayName>Bob</DisplayName>
-        <DateAdded>2025-07-18T19:36:52.816Z</DateAdded>
       </Grantee>
       <Permission>FULL_CONTROL</Permission>
+      <DateAdded>2025-07-18T20:35:00.684Z</DateAdded>
     </Grant>
   </Grants>
 </Bucket>
