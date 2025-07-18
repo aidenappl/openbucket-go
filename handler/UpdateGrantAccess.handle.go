@@ -7,20 +7,25 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func GrantAccess(bucketName string, keyID string, acl string) error {
+func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) error {
+	if acl == types.ACLUnknown || keyID == "" || bucketName == "" {
+		return fmt.Errorf("bucket name, key ID, and ACL must be provided")
+	}
+
 	permissions, err := auth.LoadPermissions(bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to load permissions for bucket %s: %v", bucketName, err)
 	}
 
+	var found bool
 	for _, grant := range permissions.Grants {
 		if grant.KeyID == keyID {
-			return fmt.Errorf("keyID %s already has access to bucket %s", keyID, bucketName)
+			found = true
+			break
 		}
 	}
-
-	if acl == "" {
-		acl = "READ"
+	if !found {
+		return fmt.Errorf("keyID %s does not have access to bucket %s", keyID, bucketName)
 	}
 
 	authr, err := auth.LoadAuthorizations()
@@ -40,12 +45,15 @@ func GrantAccess(bucketName string, keyID string, acl string) error {
 		return fmt.Errorf("keyID %s is not valid", keyID)
 	}
 
-	grantType := types.ConvertToPermission(acl)
-	if grantType == types.ACLUnknown {
-		return fmt.Errorf("invalid ACL type: %s", acl)
+	for i, grant := range permissions.Grants {
+		if grant.KeyID == keyID {
+			permissions.Grants[i].ACL = acl
+			break
+		}
 	}
-
-	permissions.Grants = append(permissions.Grants, auth.NewGrant(keyID, grantType))
+	if len(permissions.Grants) == 0 {
+		return fmt.Errorf("no grants found for keyID %s in bucket %s", keyID, bucketName)
+	}
 
 	err = auth.UpdatePermissions(bucketName, permissions)
 	if err != nil {
@@ -53,5 +61,4 @@ func GrantAccess(bucketName string, keyID string, acl string) error {
 	}
 
 	return nil
-
 }

@@ -45,8 +45,10 @@ func startServer() {
 func main() {
 	// Check if sending cli commands or starting server
 	if len(os.Args) > 1 {
+		// Run CLI handler
 		cli.SetupCLI()
 	} else {
+		// Start the server
 		startServer()
 	}
 }

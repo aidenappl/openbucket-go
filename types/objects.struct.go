@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// ObjectMetadata represents the metadata of an object in a bucket.
 type ObjectMetadata struct {
 	ETag              string      `xml:"ETag" json:"etag"`
 	Bucket            string      `xml:"Bucket" json:"bucket"`
@@ -24,16 +25,19 @@ type Tag struct {
 	Value string `xml:"Value" json:"value"`
 }
 
+// OwnerObject represents the owner of an object in the bucket.
 type OwnerObject struct {
 	ID          string `xml:"ID" json:"id"`
 	DisplayName string `xml:"DisplayName" json:"displayName"`
 }
 
+// CommonPrefix represents a common prefix in the object listing.
 type CommonPrefix struct {
 	Prefix string `xml:"Prefix"`
 	Size   int64  `xml:"Size,omitempty"`
 }
 
+// ObjectList represents a list of objects in a bucket.
 type ObjectList struct {
 	XMLName        xml.Name         `xml:"ListBucketResult"`
 	Name           string           `xml:"Name"`

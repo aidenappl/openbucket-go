@@ -1,5 +1,7 @@
 package types
 
+import "strings"
+
 // ACL defines the structure of an Access Control List (ACL) in OpenBucket.
 type Permission string
 
@@ -123,6 +125,25 @@ func ConvertToBucketACL(acl string) Permission {
 		return BUCKET_ACLPublicWrite
 	default:
 		return ACLUnknown // Default to ACLUnknown if no specific ACL matches
+	}
+}
+
+// ConvertToPermission converts a string to a Permission.
+func ConvertToPermission(perm string) Permission {
+	perm = strings.ToLower(perm) // Normalize to lowercase
+	switch perm {
+	case "read":
+		return READ
+	case "write":
+		return WRITE
+	case "read-acp":
+		return READ_ACP
+	case "write-acp":
+		return WRITE_ACP
+	case "full-control":
+		return FULL_CONTROL
+	default:
+		return ACLUnknown // Default to ACLUnknown if no specific permission matches
 	}
 }
 

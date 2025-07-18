@@ -8,6 +8,7 @@ import (
 
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/types"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -61,15 +62,40 @@ func generateCredentials(cmd *cobra.Command, args []string) {
 	fmt.Printf("Generated Credentials:\nAccess Key ID: %s\nSecret Access Key: %s\n", creds.KeyID, creds.SecretKey)
 }
 
+func grantUpdate(cmd *cobra.Command, args []string) {
+	if len(args) != 3 {
+		fmt.Println("Usage: openbucket grant-update [bucket_name] [key_id] [acl]")
+		return
+	}
+	bucketName := args[0]
+	keyID := args[1]
+	acl := types.ConvertToPermission(strings.ToUpper(args[2]))
+	if acl == types.ACLUnknown {
+		fmt.Println("Invalid ACL type. Use READ, WRITE, or FULL_CONTROL.")
+		return
+	}
+
+	err := handler.UpdateGrantAccess(bucketName, keyID, acl)
+	if err != nil {
+		fmt.Println("Error updating grant access:", err)
+		return
+	}
+	fmt.Printf("Access updated for %s in bucket %s with ACL %s\n", keyID, bucketName, acl)
+}
+
 func grant(cmd *cobra.Command, args []string) {
 	bucketName := args[0]
 	keyID := args[1]
-	err := handler.GrantAccess(bucketName, keyID)
+	acl := "READ" // Default to READ if not specified
+	if len(args) > 2 {
+		acl = strings.ToUpper(args[2])
+	}
+	err := handler.GrantAccess(bucketName, keyID, acl)
 	if err != nil {
 		fmt.Println("Error granting access:", err)
 		return
 	}
-	fmt.Printf("Access granted to %s for bucket %s\n", keyID, bucketName)
+	fmt.Printf("Access granted to %s for bucket %s with ACL %s\n", keyID, bucketName, acl)
 }
 
 func permissions(cmd *cobra.Command, args []string) {

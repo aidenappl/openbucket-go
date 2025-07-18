@@ -29,15 +29,25 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(credentialsCmd)
 
-	// `openbucket grant [bucket_name] [key_id]`
+	// `openbucket grant [bucket_name] [key_id] [?acl]`
 	// This command grants access to a bucket for a user identified by key_id.
 	var grantCmd = &cobra.Command{
-		Use:   "grant [bucket_name] [key_id]",
+		Use:   "grant [bucket_name] [key_id] [acl]",
 		Short: "Grant access to a bucket for a user",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.RangeArgs(2, 3),
 		Run:   grant,
 	}
 	rootCmd.AddCommand(grantCmd)
+
+	// `openbucket grant-update [bucket_name] [key_id] [acl]`
+	// This command grants access to a bucket for a user identified by key_id.
+	var grantUpdateCmd = &cobra.Command{
+		Use:   "grant-update [bucket_name] [key_id] [acl]",
+		Short: "Update access to a bucket for a user",
+		Args:  cobra.ExactArgs(3),
+		Run:   grantUpdate,
+	}
+	rootCmd.AddCommand(grantUpdateCmd)
 
 	// `openbucket list-buckets`
 	// This command lists all buckets or the buckets accessible by a specific user.

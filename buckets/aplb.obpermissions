@@ -2,19 +2,9 @@
   <acl>PRIVATE</acl>
   <grants>
     <grant>
-      <keyID>P_ToMjSfGXXT7WHQ0dchT1-C1Nr4m25w</keyID>
-      <acl>READ</acl>
-      <date_added>2025-07-17T12:54:07.857458-04:00</date_added>
-    </grant>
-    <grant>
       <keyID>GK8c1e3301dca0ade2aa1c1a05</keyID>
       <acl>FULL_CONTROL</acl>
-      <date_added>2025-07-17T12:54:17.106839-04:00</date_added>
-    </grant>
-    <grant>
-      <keyID>GJnl65vGBtBpZZ-vOXc2dSnz9eQf_5W6</keyID>
-      <acl>READ</acl>
-      <date_added>2025-07-17T13:55:51.519301-04:00</date_added>
+      <date_added>2025-07-18T12:33:31.620146-04:00</date_added>
     </grant>
   </grants>
 </Permissions>
