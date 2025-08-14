@@ -17,4 +17,10 @@
         <SECRET_KEY>ersTvk1WJYyoXbEwxDsLk3eNrnXYOv--NdjZkUQamrjAJrTOAmGwBTwM9YYiZUG7</SECRET_KEY>
         <Date_Created>2025-07-17T11:56:51.821818-04:00</Date_Created>
     </Authorization>
+    <Authorization>
+        <Name>Jackson</Name>
+        <KEY_ID>oueFrXQW5bT5rVos5Dn9Jp9UXpJ23kiQ</KEY_ID>
+        <SECRET_KEY>MkYidYQJ7tl0IJJEPhWagIsXI1uZ2DMbINs87EngSgUvtPhFYFFEcqEjBTTlOO4K</SECRET_KEY>
+        <Date_Created>2025-07-20T17:47:07.297328-04:00</Date_Created>
+    </Authorization>
 </Authorizations>
