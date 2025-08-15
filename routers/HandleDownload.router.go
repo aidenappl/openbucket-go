@@ -40,6 +40,26 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		log.Println(request, host, "UploadId query parameter is not supported for download")
 		return
 	}
+	if _, ok := q["attributes"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "UploadId query parameter is not supported for download")
+		return
+	}
+	if _, ok := q["legal-hold"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "LegalHold query parameter is not supported for download")
+		return
+	}
+	if _, ok := q["retention"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Retention query parameter is not supported for download")
+		return
+	}
+	if _, ok := q["torrent"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Torrent query parameter is not supported for download")
+		return
+	}
 
 	if bucket == "" || key == "" {
 		responder.SendAccessDeniedXML(w, &request, &host)

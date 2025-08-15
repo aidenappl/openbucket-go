@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
@@ -74,6 +75,16 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	if _, ok := q["tagging"]; ok {
 		log.Println("Currently do not support tagging")
 		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		return
+	}
+	if _, ok := q["legal-hold"]; ok {
+		log.Println("LegalHold query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "LegalHold query parameter is not supported", "", "")
+		return
+	}
+	if _, ok := q["retention"]; ok {
+		log.Println("Retention query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Retention query parameter is not supported", "", "")
 		return
 	}
 
