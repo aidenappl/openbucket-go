@@ -9,6 +9,7 @@ import (
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
 )
@@ -23,6 +24,34 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 
 	// retrieve user session from the request context
 	session := middleware.RetrieveSession(r)
+
+	// Check if using sub query
+	q := r.URL.Query()
+	if _, ok := q["acl"]; ok {
+		log.Println("ACL query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "ACL query parameter is not supported", "", "")
+		return
+	}
+	if _, ok := q["policy"]; ok {
+		log.Println("Policy query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Policy query parameter is not supported", "", "")
+		return
+	}
+	if _, ok := q["tagging"]; ok {
+		log.Println("Tagging query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Tagging query parameter is not supported", "", "")
+		return
+	}
+	if _, ok := q["versioning"]; ok {
+		log.Println("Versioning query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Versioning query parameter is not supported", "", "")
+		return
+	}
+	if _, ok := q["publicAccessBlock"]; ok {
+		log.Println("PublicAccessBlock query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "PublicAccessBlock query parameter is not supported", "", "")
+		return
+	}
 
 	// Check if any ACL headers are present
 	aclHeaders := []string{

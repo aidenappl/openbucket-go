@@ -35,6 +35,11 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		log.Println(request, host, "Tagging query parameter is not supported for download")
 		return
 	}
+	if _, ok := q["uploadId"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "UploadId query parameter is not supported for download")
+		return
+	}
 
 	if bucket == "" || key == "" {
 		responder.SendAccessDeniedXML(w, &request, &host)

@@ -35,7 +35,7 @@ func startServer() {
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDownload)).Methods(http.MethodGet)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
-	// TODO: Build HandleUploadModification (s3api complete-multipart-upload, create-multipart-upload, delete-objects)
+	// TODO: Build HandleUploadModification (s3api complete-multipart-upload, create-multipart-upload, delete-objects, restore-object, select-object-content)
 	// r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUploadModification)).Methods(http.MethodPost)
 
 	// Start the server

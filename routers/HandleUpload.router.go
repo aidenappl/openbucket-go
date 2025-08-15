@@ -66,6 +66,16 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not Implemented", http.StatusNotImplemented)
 		return
 	}
+	if _, ok := q["acl"]; ok {
+		log.Println("Currently do not support acl")
+		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		return
+	}
+	if _, ok := q["tagging"]; ok {
+		log.Println("Currently do not support tagging")
+		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		return
+	}
 
 	isDirectory := strings.HasSuffix(key, "/")
 	if isDirectory {
