@@ -23,16 +23,20 @@ func startServer() {
 	// Logging middleware for console output
 	r.Use(middleware.LoggingMiddleware)
 
-	r.HandleFunc("/", middleware.Authorized(routers.HandleListBuckets)).Methods(http.MethodGet)
+	r.HandleFunc("/", middleware.HalfAuthorized(routers.HandleListBuckets)).Methods(http.MethodGet)
 
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleBucket)).Methods(http.MethodGet)
-	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleCreateBucket)).Methods(http.MethodPut)
+	r.HandleFunc("/{bucket}", middleware.HalfAuthorized(routers.HandleCreateBucket)).Methods(http.MethodPut)
+	// r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleModifyBucket)).Methods(http.MethodPost)
+	// r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleBucketHead)).Methods(http.MethodHead)
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleDeleteBucket)).Methods(http.MethodDelete)
 
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleHeadObject)).Methods(http.MethodHead)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDownload)).Methods(http.MethodGet)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
+	// TODO: Build HandleUploadModification (s3api complete-multipart-upload, create-multipart-upload, delete-objects)
+	// r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUploadModification)).Methods(http.MethodPost)
 
 	// Start the server
 	log.Println("✅ Server started at http://localhost:" + env.Port)

@@ -21,6 +21,12 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		HandleBucketACL(w, r, bucket)
 		return
 	}
+	if _, ok := q["session"]; ok {
+		log.Println("Session query parameter is not supported for bucket operations")
+		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Session query parameter is not supported", "", "")
+		return
+	}
+
 	HandleListObjects(w, r)
 }
 

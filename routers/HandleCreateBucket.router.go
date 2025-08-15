@@ -18,15 +18,11 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	// retrieve user grant from the request context
+	// retrieve user grant from the request context for existing buckets
 	grant := middleware.RetrieveGrant(r)
 
-	// Check if request has body
-	if r.ContentLength != 0 {
-		log.Println("Received request body for bucket creation, which is not supported")
-		http.Error(w, "Policy handling has not been implemented", http.StatusBadRequest)
-		return
-	}
+	// retrieve user session from the request context
+	session := middleware.RetrieveSession(r)
 
 	// Check if any ACL headers are present
 	aclHeaders := []string{
@@ -76,10 +72,18 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := handler.CreateBucket(bucket, types.UserObject{
-		ID:          grant.Grantee.ID,
-		DisplayName: grant.Grantee.DisplayName,
+		ID:          session.KeyID,
+		DisplayName: session.Name,
 	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Create new grant
+	newGrant := auth.NewGrant(session.KeyID, session.Name, types.FULL_CONTROL)
+	if err := auth.SaveNewGrant(bucket, &newGrant); err != nil {
+		log.Println("Error creating new user permissions:", err)
+		http.Error(w, fmt.Sprintf("error creating new user permissions: %v", err), http.StatusInternalServerError)
 		return
 	}
 

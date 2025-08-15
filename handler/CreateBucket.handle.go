@@ -44,10 +44,10 @@ func CreateBucket(bucket string, owner types.UserObject) error {
 	defer permissionsFile.Close()
 
 	permissions := types.Bucket{
-		Name:         bucket,
-		Owner:        owner,
-		ACL:          types.BUCKET_ACLPrivate, // Default ACL for new buckets
-		Grants:       []types.Grant{},
+		Name:  bucket,
+		Owner: owner,
+		ACL:   types.BUCKET_ACLPrivate, // Default ACL for new buckets
+		Grants: []types.Grant{},
 		CreationDate: types.IsoTime(time.Now()),
 	}
 

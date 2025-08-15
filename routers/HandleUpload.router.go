@@ -48,6 +48,25 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check different subrequest types
+	found, name, value := tools.HeaderExists(r, "x-amz-copy-source")
+	if found {
+		log.Println("Copy source detected:", name, value)
+		http.Error(w, "Copy source not supported", http.StatusNotImplemented)
+		return
+	}
+	q := r.URL.Query()
+	if _, ok := q["partNumber"]; ok {
+		log.Println("Currently do not support multipart uploads")
+		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		return
+	}
+	if _, ok := q["uploadId"]; ok {
+		log.Println("Currently do not support multipart uploads")
+		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		return
+	}
+
 	isDirectory := strings.HasSuffix(key, "/")
 	if isDirectory {
 

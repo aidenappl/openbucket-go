@@ -25,6 +25,38 @@ var PermissionsContextKey contextKey = "permissions"
 var MetadataContextKey contextKey = "metadata"
 var SessionContextKey contextKey = "session"
 
+// HalfAuthorized is a middleware that only checks if the user is authorized to access the endpoint
+func HalfAuthorized(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestID, hostID := GetRequestID(r), GetHostID(r)
+
+		// Get the access key from the request
+		keyID, err := GetAccessKeyFromRequest(r)
+		if err != nil {
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
+			log.Printf("Unauthorized: %v", err)
+			return
+		}
+
+		// Check if the user exists
+		session, err := auth.CheckUserExists(keyID)
+		if err != nil {
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
+			log.Printf("Unauthorized: %v", err)
+			return
+		}
+		if session == nil {
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
+			log.Printf("Unauthorized: user with KEY_ID %s not found", keyID)
+			return
+		}
+
+		// Store the session in the context
+		ctx := context.WithValue(r.Context(), SessionContextKey, session)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
 // Authorized is a middleware that checks if the user is authorized to access the requested resource.
 func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
