@@ -24,8 +24,20 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	request := middleware.GetRequestID(r)
 	host := middleware.GetHostID(r)
 
+	q := r.URL.Query()
+	if _, ok := q["acl"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "ACL query parameter is not supported for download")
+		return
+	}
+	if _, ok := q["tagging"]; ok {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Tagging query parameter is not supported for download")
+		return
+	}
+
 	if bucket == "" || key == "" {
-		responder.SendAccessDeniedXML(w, nil, nil)
+		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Bucket or key is empty")
 		return
 	}
