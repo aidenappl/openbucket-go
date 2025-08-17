@@ -36,7 +36,7 @@ func createBucket(cmd *cobra.Command, args []string) {
 }
 
 func listBuckets(cmd *cobra.Command, args []string) {
-	buckets, err := handler.ListBuckets()
+	buckets, err := handler.ListBuckets(nil)
 	if err != nil {
 		fmt.Println("Error listing buckets:", err)
 		return
