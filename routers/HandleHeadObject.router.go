@@ -21,7 +21,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	rawKey := vars["key"]
 
 	if bucket == "" || rawKey == "" {
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest",
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest",
 			"Bucket and key must be provided", "", "")
 		return
 	}
@@ -29,7 +29,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	cleanKey := path.Clean("/" + rawKey)
 	if strings.Contains(cleanKey, "..") ||
 		strings.HasSuffix(cleanKey, "/") {
-		responder.SendXML(w, http.StatusBadRequest, "InvalidKey",
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidKey",
 			"Invalid object key", "", "")
 		return
 	}
@@ -37,7 +37,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	objPath := filepath.Join("buckets", bucket, cleanKey)
 	info, err := os.Stat(objPath)
 	if err != nil {
-		responder.SendXML(w, http.StatusNotFound, "NoSuchKey",
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey",
 			"Object not found", "", "")
 		return
 	}

@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/xml"
-	"time"
 )
 
 // ObjectMetadata represents the metadata of an object in a bucket.
@@ -47,11 +46,4 @@ type ObjectList struct {
 	IsTruncated    bool             `xml:"IsTruncated"`
 	Contents       []ObjectMetadata `xml:"Contents"`
 	CommonPrefixes []CommonPrefix   `xml:"CommonPrefixes,omitempty"`
-}
-
-type IsoTime time.Time
-
-func (t IsoTime) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	v := time.Time(t).UTC().Format("2006-01-02T15:04:05.000Z")
-	return e.EncodeElement(v, start)
 }

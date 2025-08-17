@@ -1,16 +1,15 @@
 package routers
 
 import (
-	"encoding/xml"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/types"
@@ -50,10 +49,9 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check different subrequest types
-	found, name, value := tools.HeaderExists(r, "x-amz-copy-source")
+	found, _, _ := tools.HeaderExists(r, "x-amz-copy-source")
 	if found {
-		log.Println("Copy source detected:", name, value)
-		http.Error(w, "Copy source not supported", http.StatusNotImplemented)
+		handler.HandleCopyObject(w, r)
 		return
 	}
 	q := r.URL.Query()
@@ -79,12 +77,12 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, ok := q["legal-hold"]; ok {
 		log.Println("LegalHold query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "LegalHold query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "LegalHold query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["retention"]; ok {
 		log.Println("Retention query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Retention query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Retention query parameter is not supported", "", "")
 		return
 	}
 
@@ -102,77 +100,17 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
+	// Create File
+	eTag, err := objects.CreateObject(filePath, key, bucket, r.Body, nil, &types.UserObject{
+		ID:          user.KeyID,
+		DisplayName: user.Name,
+	})
 	if err != nil {
-		http.Error(w, "Failed to create directory", http.StatusInternalServerError)
-		log.Println("Error creating directory:", err)
-		return
-	}
-
-	file, err := os.Create(filePath)
-	if err != nil {
-		http.Error(w, "Unable to create file", http.StatusInternalServerError)
-		log.Println("Error creating file:", err)
-		return
-	}
-	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
-		http.Error(w, "Unable to get file info", http.StatusInternalServerError)
-		log.Println("Error getting file info:", err)
-		return
-	}
-
-	_, err = io.Copy(file, r.Body)
-	if err != nil {
-		http.Error(w, "Error saving file", http.StatusInternalServerError)
-		log.Println("Error saving file:", err)
-		return
-	}
-
-	etag, err := tools.GenerateETag(filePath)
-	if err != nil {
-		http.Error(w, "Error generating ETag", http.StatusInternalServerError)
-		log.Println("Error generating ETag:", err)
-		return
-	}
-
-	metadata := &types.ObjectMetadata{
-		ETag:         etag,
-		Key:          key,
-		Bucket:       bucket,
-		Owner:        types.UserObject{ID: user.KeyID, DisplayName: user.Name},
-		Public:       false,
-		LastModified: types.IsoTime(time.Now()),
-		UploadedAt:   types.IsoTime(time.Now()),
-		VersionId:    "1",
-		Size:         stat.Size(),
-	}
-
-	metadataFilePath := filePath + ".obmeta"
-	metadataFile, err := os.Create(metadataFilePath)
-	if err != nil {
-		http.Error(w, "Error saving metadata", http.StatusInternalServerError)
-		log.Println("Error saving metadata:", err)
-		return
-	}
-	defer metadataFile.Close()
-
-	metadataXML, err := xml.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		log.Println("Error marshalling metadata to XML:", err)
-		http.Error(w, "Error marshalling metadata", http.StatusInternalServerError)
-		return
-	}
-
-	_, err = metadataFile.WriteString(string(metadataXML))
-	if err != nil {
-		log.Println("Error writing to metadata file:", err)
-		http.Error(w, "Error writing to metadata file", http.StatusInternalServerError)
+		http.Error(w, "Failed to create object", http.StatusInternalServerError)
+		log.Println("Error creating object:", err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	log.Println("File uploaded successfully. ETag:", etag)
+	log.Println("File uploaded successfully. ETag:", *eTag)
 }
