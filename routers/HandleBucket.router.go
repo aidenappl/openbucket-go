@@ -66,11 +66,6 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Accelerate query parameter is not supported", "", "")
 		return
 	}
-	if _, ok := q["encoding-type"]; ok {
-		log.Println("Encoding-Type query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Encoding-Type query parameter is not supported", "", "")
-		return
-	}
 	if _, ok := q["analytics"]; ok {
 		log.Println("Analytics query parameter is not supported for bucket operations")
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Analytics query parameter is not supported", "", "")

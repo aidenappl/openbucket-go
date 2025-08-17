@@ -44,6 +44,7 @@ type ObjectList struct {
 	Delimiter      string           `xml:"Delimiter,omitempty"`
 	MaxKeys        int              `xml:"MaxKeys"`
 	IsTruncated    bool             `xml:"IsTruncated"`
+	EncodingType   string           `xml:"EncodingType,omitempty"`
 	Contents       []ObjectMetadata `xml:"Contents"`
 	CommonPrefixes []CommonPrefix   `xml:"CommonPrefixes,omitempty"`
 }
