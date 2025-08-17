@@ -21,3 +21,8 @@ func DeleteObject(bucketName, objectName string) error {
 
 	return nil // Return nil if deletion is successful
 }
+
+// DeleteObject removes an object from a bucket
+func DeleteVersionedObject(bucketName, objectName string, versionId string) error {
+	return DeleteObject(bucketName, objectName) // For simplicity, we treat versioned objects the same as regular objects TODO: implement versioning
+}
