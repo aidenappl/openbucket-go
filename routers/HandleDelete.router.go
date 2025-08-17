@@ -3,25 +3,16 @@ package routers
 import (
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 
+	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/objects"
+	"github.com/aidenappl/openbucket-go/responder"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
 func HandleDelete(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	key := vars["key"]
-
-	filePath := filepath.Join("buckets", bucket, key)
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		http.Error(w, "Object not found", http.StatusNotFound)
-		log.Println("Object not found:", filePath)
-		return
-	}
-
+	// Check sub queries
 	q := r.URL.Query()
 	if _, ok := q["uploadId"]; ok {
 		log.Println("Currently do not support multipart cancellations")
@@ -34,13 +25,42 @@ func HandleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := os.Remove(filePath)
+	deleteObject(w, r)
+}
+
+func deleteObject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["key"]
+
+	requestId := middleware.GetRequestID(r)
+	hostId := middleware.GetHostID(r)
+
+	// validate bucket name and object name
+	if bucketName == "" || objectName == "" {
+		responder.SendXMLError(w, http.StatusNotFound, "InvalidBucketOrObject", "The bucket name or object name is invalid", requestId, hostId)
+		return
+	}
+
+	// Check that bucket exists
+	if !util.BucketExists(bucketName) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
+		return
+	}
+
+	// Check that object exists
+	if !util.ObjectExists(bucketName, objectName) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
+		return
+	}
+
+	// Delete the object
+	err := objects.DeleteObject(bucketName, objectName)
 	if err != nil {
-		http.Error(w, "Failed to delete object", http.StatusInternalServerError)
-		log.Println("Error deleting file:", err)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to delete object", requestId, hostId)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-	log.Printf("Successfully deleted object %s from bucket %s", key, bucket)
+	log.Printf("Successfully deleted object %s from bucket %s", objectName, bucketName)
 }
