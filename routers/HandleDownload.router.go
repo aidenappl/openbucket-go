@@ -17,10 +17,6 @@ import (
 
 func HandleDownload(w http.ResponseWriter, r *http.Request) {
 
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	key := vars["key"]
-
 	request := middleware.GetRequestID(r)
 	host := middleware.GetHostID(r)
 
@@ -61,22 +57,41 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	handleDownload(w, r)
+}
+
+func handleDownload(w http.ResponseWriter, r *http.Request) {
+
+	// Get request variables
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+	key := vars["key"]
+	// Get host & request from context
+	request := middleware.GetRequestID(r)
+	host := middleware.GetHostID(r)
+
+	// Validate bucket & key
 	if bucket == "" || key == "" {
 		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Bucket or key is empty")
 		return
 	}
 
+	// Structure request
 	filePath := filepath.Join("buckets", bucket, key)
+
+	// Open requested file
 	file, err := os.Open(filePath)
 	if err != nil {
 		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Error getting file info:", err)
 		return
 	}
+
+	// Get file information
 	fileInfo, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
-		responder.SendAccessDeniedXML(w, &request, &host)
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.", request, host)
 		return
 	} else if err != nil {
 		responder.SendAccessDeniedXML(w, &request, &host)
@@ -89,9 +104,10 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	permissions := middleware.RetrievePermissions(r)
-	metadata := middleware.RetrieveMetadata(r)
-	session := middleware.RetrieveSession(r)
+	// Check user permissions for file
+	permissions := middleware.RetrievePermissions(r) // Bucket permissions
+	metadata := middleware.RetrieveMetadata(r)       // File metadata
+	session := middleware.RetrieveSession(r)         // User session
 
 	if !metadata.Public && !types.IsBucketACLRead(permissions.ACL) && session == nil {
 		if !isValidPresignURL(r, bucket, key) {
@@ -105,6 +121,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Structure response headers
 	w.Header().Set("ETag", metadata.ETag)
 	w.Header().Set("X-Amz-Meta-owner-id", metadata.Owner.ID)
 	w.Header().Set("X-Amz-Meta-owner-display-name", metadata.Owner.DisplayName)
@@ -114,6 +131,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("x-amz-tagging-count", strconv.Itoa(len(metadata.Tags)))
 	w.Header().Set("x-amz-version-id", metadata.VersionId)
 
+	// Transfer file content
 	_, err = io.Copy(w, file)
 	if err != nil {
 		responder.SendAccessDeniedXML(w, &request, &host)
