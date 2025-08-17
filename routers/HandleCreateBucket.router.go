@@ -29,102 +29,102 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if _, ok := q["acl"]; ok {
 		log.Println("ACL query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "ACL query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "ACL query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["policy"]; ok {
 		log.Println("Policy query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Policy query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Policy query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["tagging"]; ok {
 		log.Println("Tagging query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Tagging query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Tagging query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["versioning"]; ok {
 		log.Println("Versioning query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Versioning query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Versioning query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["publicAccessBlock"]; ok {
 		log.Println("PublicAccessBlock query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "PublicAccessBlock query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "PublicAccessBlock query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["accelerate"]; ok {
 		log.Println("Accelerate query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Accelerate query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Accelerate query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["analytics"]; ok {
 		log.Println("Analytics query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Analytics query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Analytics query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["cors"]; ok {
 		log.Println("CORS query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "CORS query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "CORS query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["encryption"]; ok {
 		log.Println("Encryption query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Encryption query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Encryption query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["intelligent-tiering"]; ok {
 		log.Println("Intelligent-Tiering query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Intelligent-Tiering query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Intelligent-Tiering query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["inventory"]; ok {
 		log.Println("Inventory query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Inventory query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Inventory query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["lifecycle"]; ok {
 		log.Println("Inventory query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Inventory query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Inventory query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["logging"]; ok {
 		log.Println("Logging query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Logging query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Logging query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["metrics"]; ok {
 		log.Println("Metrics query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Metrics query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Metrics query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["notification"]; ok {
 		log.Println("Notification query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Notification query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Notification query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["ownershipControls"]; ok {
 		log.Println("OwnershipControls query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "OwnershipControls query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "OwnershipControls query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["replication"]; ok {
 		log.Println("Replication query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Replication query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Replication query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["requestPayment"]; ok {
 		log.Println("RequestPayment query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "RequestPayment query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "RequestPayment query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["website"]; ok {
 		log.Println("Website query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "Website query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Website query parameter is not supported", "", "")
 		return
 	}
 	if _, ok := q["object-lock"]; ok {
 		log.Println("ObjectLock query parameter is not supported for bucket operations")
-		responder.SendXML(w, http.StatusBadRequest, "InvalidRequest", "ObjectLock query parameter is not supported", "", "")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "ObjectLock query parameter is not supported", "", "")
 		return
 	}
 

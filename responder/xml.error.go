@@ -13,7 +13,7 @@ type ErrorResponse struct {
 	HostId    string   `xml:"HostId"`
 }
 
-func SendXML(w http.ResponseWriter, statusCode int, code, message, requestId, hostId string) {
+func SendXMLError(w http.ResponseWriter, statusCode int, code, message, requestId, hostId string) {
 
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(statusCode)
@@ -42,5 +42,5 @@ func SendAccessDeniedXML(w http.ResponseWriter, requestID *string, hostID *strin
 	if hostID == nil {
 		hostID = new(string)
 	}
-	SendXML(w, http.StatusForbidden, "AccessDenied", "Access Denied", *requestID, *hostID)
+	SendXMLError(w, http.StatusForbidden, "AccessDenied", "Access Denied", *requestID, *hostID)
 }
