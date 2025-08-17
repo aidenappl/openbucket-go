@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/olekukonko/tablewriter"
@@ -22,7 +23,7 @@ func createBucket(cmd *cobra.Command, args []string) {
 	bucketName := args[0]
 	fmt.Printf("Creating bucket: %s\n", bucketName)
 
-	err := handler.CreateBucket(bucketName, types.UserObject{
+	err := bucket.CreateBucket(bucketName, types.UserObject{
 		ID:          "OPENBUCKET_CLI",
 		DisplayName: "OpenBucket CLI",
 	})
