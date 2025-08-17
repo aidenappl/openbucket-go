@@ -1,4 +1,4 @@
-package handler
+package bucket
 
 import (
 	"encoding/xml"
@@ -12,17 +12,16 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func CreateBucket(bucket string, owner types.UserObject) error {
-
-	filePath := filepath.Join("buckets", bucket)
+func CreateBucket(bucketName string, owner types.UserObject) error {
+	filePath := filepath.Join("buckets", bucketName)
 
 	// Does it already exist?
 	if fi, err := os.Stat(filePath); err == nil {
 		if !fi.IsDir() {
 			return fmt.Errorf("%s exists but is not a directory", filePath)
 		}
-		log.Println("Bucket already exists:", bucket)
-		return fmt.Errorf("bucket already exists: %s", bucket)
+		log.Println("Bucket already exists:", bucketName)
+		return fmt.Errorf("bucket already exists: %s", bucketName)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		// real error
 		return fmt.Errorf("stat %s: %w", filePath, err)
@@ -30,10 +29,10 @@ func CreateBucket(bucket string, owner types.UserObject) error {
 
 	// Parent(s) + bucket
 	if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
-		return fmt.Errorf("create bucket %s: %w", bucket, err)
+		return fmt.Errorf("create bucket %s: %w", bucketName, err)
 	}
 
-	log.Println("Created bucket:", bucket)
+	log.Println("Created bucket:", bucketName)
 
 	permissionsFile, err := os.Create(filePath + ".obpermissions")
 	if err != nil {
@@ -44,10 +43,10 @@ func CreateBucket(bucket string, owner types.UserObject) error {
 	defer permissionsFile.Close()
 
 	permissions := types.Bucket{
-		Name:  bucket,
-		Owner: owner,
-		ACL:   types.BUCKET_ACLPrivate, // Default ACL for new buckets
-		Grants: []types.Grant{},
+		Name:         bucketName,
+		Owner:        owner,
+		ACL:          types.BUCKET_ACLPrivate, // Default ACL for new buckets
+		Grants:       []types.Grant{},
 		CreationDate: types.IsoTime(time.Now()),
 	}
 

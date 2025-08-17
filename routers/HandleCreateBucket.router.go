@@ -7,23 +7,15 @@ import (
 	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
-	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
 func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
-
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-
-	// retrieve user grant from the request context for existing buckets
-	grant := middleware.RetrieveGrant(r)
-
-	// retrieve user session from the request context
-	session := middleware.RetrieveSession(r)
 
 	// Check if using sub query
 	q := r.URL.Query()
@@ -128,6 +120,9 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// retrieve user grant from the request context for existing buckets
+	grant := middleware.RetrieveGrant(r)
+
 	// Check if any ACL headers are present
 	aclHeaders := []string{
 		"x-amz-grant-full-control",
@@ -156,6 +151,8 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
+			vars := mux.Vars(r)
+			bucket := vars["bucket"]
 			err := handleGrant(name, v, bucket, grant)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -170,29 +167,64 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bucket == "" {
-		http.Error(w, "Bucket name must be provided", http.StatusBadRequest)
+	handleNewBucket(w, r)
+}
+
+func handleNewBucket(w http.ResponseWriter, r *http.Request) {
+	// Get mux bucket variable
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	// Get the request id & host id
+	requestID := middleware.GetRequestID(r)
+	hostID := middleware.GetHostID(r)
+
+	// Validate bucket
+	if bucketName == "" {
+		responder.SendAccessDeniedXML(w, &requestID, &hostID)
 		return
 	}
 
-	if err := handler.CreateBucket(bucket, types.UserObject{
+	// Retrieve User Session
+	session := middleware.RetrieveSession(r)
+
+	// validate session
+	if session == nil {
+		responder.SendAccessDeniedXML(w, &requestID, &hostID)
+		return
+	}
+
+	// TODO: integrate with IAM to verify permissions, right now if an authorized user anyone can create buckets
+
+	// Check if bucket exists
+	if util.BucketExists(bucketName) {
+		log.Println("Bucket already exists:", bucketName)
+		responder.SendXMLError(w, http.StatusConflict, "BucketAlreadyExists", "The requested bucket name is not available", requestID, hostID)
+		return
+	}
+
+	// Create Base Bucket
+	if err := bucket.CreateBucket(bucketName, types.UserObject{
 		ID:          session.KeyID,
 		DisplayName: session.Name,
 	}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println("Error creating bucket:", err)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error creating bucket: %v", err), requestID, hostID)
 		return
 	}
 
-	// Create new grant
+	// Create new grant giving owner full control
 	newGrant := auth.NewGrant(session.KeyID, session.Name, types.FULL_CONTROL)
-	if err := auth.SaveNewGrant(bucket, &newGrant); err != nil {
+	if err := auth.SaveNewGrant(bucketName, &newGrant); err != nil {
 		log.Println("Error creating new user permissions:", err)
-		http.Error(w, fmt.Sprintf("error creating new user permissions: %v", err), http.StatusInternalServerError)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error creating new user permissions: %v", err), requestID, hostID)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("Bucket created successfully"))
+	// Success response
+	responder.SendXML(w, http.StatusOK, types.CreateBucketResult{
+		Location: fmt.Sprintf("/%s", bucketName),
+	})
 }
 
 func handleGrant(name string, value string, bucket string, grant *types.Grant) error {
