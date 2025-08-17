@@ -1,47 +1,61 @@
 package routers
 
 import (
-	"encoding/xml"
+	"log"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 
+	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
-	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
 func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	rawKey := vars["key"]
+	bucketName := vars["bucket"]
+	objectName := vars["key"]
 
-	if bucket == "" || rawKey == "" {
+	// Get request and host
+	requestId := middleware.GetRequestID(r)
+	hostId := middleware.GetHostID(r)
+
+	// Validate bucketName and objectName
+	if bucketName == "" || objectName == "" {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest",
-			"Bucket and key must be provided", "", "")
+			"Bucket and key must be provided", requestId, hostId)
 		return
 	}
 
-	cleanKey := path.Clean("/" + rawKey)
-	if strings.Contains(cleanKey, "..") ||
-		strings.HasSuffix(cleanKey, "/") {
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidKey",
-			"Invalid object key", "", "")
+	// Check if bucket exists
+	if !util.BucketExists(bucketName) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket",
+			"The specified bucket does not exist", requestId, hostId)
 		return
 	}
 
-	objPath := filepath.Join("buckets", bucket, cleanKey)
+	// Check if object exists
+	if !util.ObjectExists(bucketName, objectName) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey",
+			"Object not found", requestId, hostId)
+		return
+	}
+
+	// Build object path
+	objPath := filepath.Join("buckets", bucketName, objectName)
+
+	// Get object info
 	info, err := os.Stat(objPath)
 	if err != nil {
-		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey",
-			"Object not found", "", "")
+		responder.SendAccessDeniedXML(w, &requestId, &hostId)
 		return
 	}
 
+	// If object is directory
 	if info.IsDir() {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
@@ -50,22 +64,24 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var meta types.ObjectMetadata
-	metaPath := objPath + ".obmeta"
-	if f, err := os.Open(metaPath); err == nil {
-		_ = xml.NewDecoder(f).Decode(&meta)
-		f.Close()
+	// Get object metadata
+	meta := objects.RetrieveObjectMetadata(objPath)
+	if meta == nil {
+		responder.SendAccessDeniedXML(w, &requestId, &hostId)
+		log.Println("Error retrieving metadata for object:", objPath)
+		return
 	}
 
+	// Convert to contentType
 	cType := tools.ContentType(objPath)
 
+	// Set response headers
 	w.Header().Set("Content-Type", cType)
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
 	if meta.ETag != "" {
 		w.Header().Set("ETag", meta.ETag)
 	}
-	// w.Header().Set("X-Amz-Meta-Owner-Id", meta.Owner)
 
 	w.WriteHeader(http.StatusOK)
 }
