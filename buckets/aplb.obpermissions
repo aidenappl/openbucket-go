@@ -10,7 +10,7 @@
     <Grant>
       <Grantee xsi:type="CanonicalUser">
         <ID>GK8c1e3301dca0ade2aa1c1a05</ID>
-        <DisplayName>Bob</DisplayName>
+        <DisplayName>OpenBucket</DisplayName>
       </Grantee>
       <Permission>FULL_CONTROL</Permission>
       <DateAdded>0001-01-01T00:00:00.000Z</DateAdded>
