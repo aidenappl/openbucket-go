@@ -28,7 +28,7 @@ func startServer() {
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleBucket)).Methods(http.MethodGet)
 	r.HandleFunc("/{bucket}", middleware.HalfAuthorized(routers.HandleCreateBucket)).Methods(http.MethodPut)
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleModifyBucket)).Methods(http.MethodPost)
-	// r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleBucketHead)).Methods(http.MethodHead)
+	r.HandleFunc("/{bucket}", middleware.HalfAuthorized(routers.HandleBucketHead)).Methods(http.MethodHead)
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleDeleteBucket)).Methods(http.MethodDelete)
 
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleHeadObject)).Methods(http.MethodHead)
