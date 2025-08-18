@@ -31,14 +31,14 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	if _, ok := q["partNumber"]; ok {
-		log.Println("Currently do not support multipart uploads")
-		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "Multipart uploads are not supported", requestId, hostId)
+	_, pnOk := q["partNumber"]
+	_, upOk := q["uploadId"]
+	if pnOk && upOk {
+		handleMultipartUpload(w, r)
 		return
-	}
-	if _, ok := q["uploadId"]; ok {
-		log.Println("Currently do not support multipart uploads")
-		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "Multipart uploads are not supported", requestId, hostId)
+	} else if pnOk || upOk {
+		log.Println("Incomplete multipart upload")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Incomplete multipart upload", requestId, hostId)
 		return
 	}
 	if _, ok := q["acl"]; ok {
@@ -63,6 +63,15 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handleUpload(w, r)
+}
+
+func handleMultipartUpload(w http.ResponseWriter, r *http.Request) {
+	// Get requestID and hostID
+	requestId := middleware.GetRequestID(r)
+	hostId := middleware.GetHostID(r)
+
+	log.Println("Multipart upload not supported yet")
+	responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "Multipart upload not supported yet", requestId, hostId)
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
