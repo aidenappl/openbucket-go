@@ -3,29 +3,13 @@
   <CreationDate>0001-01-01T00:00:00.000Z</CreationDate>
   <ACL>PRIVATE</ACL>
   <Owner>
-    <ID>GJnl65vGBtBpZZ-vOXc2dSnz9eQf_5W6</ID>
+    <ID>fkIU2yJ8eTxnH9fb8ZllOfFfz0fvtJwm6</ID>
     <DisplayName>Aiden</DisplayName>
   </Owner>
   <Grants>
     <Grant>
       <Grantee xsi:type="CanonicalUser">
-        <ID>GK8c1e3301dca0ade2aa1c1a05</ID>
-        <DisplayName>OpenBucket</DisplayName>
-      </Grantee>
-      <Permission>FULL_CONTROL</Permission>
-      <DateAdded>0001-01-01T00:00:00.000Z</DateAdded>
-    </Grant>
-    <Grant>
-      <Grantee xsi:type="CanonicalUser">
-        <ID>oueFrXQW5bT5rVos5Dn9Jp9UXpJ23kiQ</ID>
-        <DisplayName>Jackson</DisplayName>
-      </Grantee>
-      <Permission>FULL_CONTROL</Permission>
-      <DateAdded>0001-01-01T00:00:00.000Z</DateAdded>
-    </Grant>
-    <Grant>
-      <Grantee xsi:type="CanonicalUser">
-        <ID>GJnl65vGBtBpZZ-vOXc2dSnz9eQf_5W6</ID>
+        <ID>fkIU2yJ8eTxnH9fb8ZllOfFfz0fvtJwm</ID>
         <DisplayName>Aiden</DisplayName>
       </Grantee>
       <Permission>FULL_CONTROL</Permission>
