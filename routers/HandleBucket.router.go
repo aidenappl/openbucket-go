@@ -6,7 +6,9 @@ import (
 	"net/http"
 
 	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
@@ -27,8 +29,7 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["location"]; ok {
-		log.Println("Location query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Location query parameter is not supported", "", "")
+		handleGetBucketLocation(w, r, bucket)
 		return
 	}
 	if _, ok := q["policy"]; ok {
@@ -143,6 +144,27 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	HandleListObjects(w, r)
+}
+
+func handleGetBucketLocation(w http.ResponseWriter, r *http.Request, bucket string) {
+	// Get hostId and requestId
+	hostId := middleware.GetHostID(r)
+	requestId := middleware.GetRequestID(r)
+
+	// Validate bucket
+	if bucket == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucket", "Bucket name is required", requestId, hostId)
+		return
+	}
+
+	// Get region
+	region := env.Region
+
+	// Build response
+	var response types.GetBucketLocationResponse
+	response.LocationConstraint = &region
+
+	responder.SendXML(w, http.StatusOK, response)
 }
 
 func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucket string) {

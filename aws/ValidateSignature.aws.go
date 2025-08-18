@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/aidenappl/openbucket-go/env"
 )
 
 func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzContentSHA256 string) bool {
@@ -69,9 +71,9 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 
 	canonicalRequest := buildCanonicalRequest(r, rawSH, amzContentSHA256)
 
-	stringToSign := buildStringToSign(date, "garage", "s3", canonicalRequest)
+	stringToSign := buildStringToSign(date, env.Region, "s3", canonicalRequest)
 
-	signingKey := getSigningKey(secretKey, date, "garage", "s3")
+	signingKey := getSigningKey(secretKey, date, env.Region, "s3")
 
 	computedSignature := computeSignature(signingKey, stringToSign)
 

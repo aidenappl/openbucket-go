@@ -1,26 +1,8 @@
 <Authorizations>
     <Authorization>
         <Name>Aiden</Name>
-        <KEY_ID>GJnl65vGBtBpZZ-vOXc2dSnz9eQf_5W6</KEY_ID>
-        <SECRET_KEY>2gUvR2wQ5ERL0zkgjGxbwmBESlJJUo0vs5ExRYAh2O-blVIuN4teNGEiXkwbzEDH</SECRET_KEY>
-        <Date_Created>2025-07-16T13:39:48-04:00</Date_Created>
-    </Authorization>
-    <Authorization>
-        <Name>OpenBucket</Name>
-        <KEY_ID>GK8c1e3301dca0ade2aa1c1a05</KEY_ID>
-        <SECRET_KEY>86868bd667574fe2f12b33377be2d3733134f980bf7e7b7b49b30fab17a58e19</SECRET_KEY>
-        <Date_Created>2025-07-16T15:19:59-04:00</Date_Created>
-    </Authorization>
-    <Authorization>
-        <Name>Larry</Name>
-        <KEY_ID>P_ToMjSfGXXT7WHQ0dchT1-C1Nr4m25w</KEY_ID>
-        <SECRET_KEY>ersTvk1WJYyoXbEwxDsLk3eNrnXYOv--NdjZkUQamrjAJrTOAmGwBTwM9YYiZUG7</SECRET_KEY>
-        <Date_Created>2025-07-17T11:56:51.821818-04:00</Date_Created>
-    </Authorization>
-    <Authorization>
-        <Name>Jackson</Name>
-        <KEY_ID>oueFrXQW5bT5rVos5Dn9Jp9UXpJ23kiQ</KEY_ID>
-        <SECRET_KEY>MkYidYQJ7tl0IJJEPhWagIsXI1uZ2DMbINs87EngSgUvtPhFYFFEcqEjBTTlOO4K</SECRET_KEY>
-        <Date_Created>2025-07-20T17:47:07.297328-04:00</Date_Created>
+        <KEY_ID>fkIU2yJ8eTxnH9fb8ZllOfFfz0fvtJwm</KEY_ID>
+        <SECRET_KEY>xAAwT0tdCz3nGXvwh0qe8LSzLUz8hR6LGb1ArcFwa05sDQQr0NsUpLMrQISI1P5w</SECRET_KEY>
+        <Date_Created>2025-08-18T11:54:36.538254-04:00</Date_Created>
     </Authorization>
 </Authorizations>
