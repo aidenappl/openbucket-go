@@ -161,7 +161,7 @@ func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucket string) {
 	}
 
 	// Convert to AccessControlPolicy
-	policy := &types.AccessControlPolicy{
+	policy := &types.AccessControlPolicyResponse{
 		XmlnsXsi: types.XsiNS,
 		Owner: types.UserObject{
 			ID:          p.Owner.ID,
@@ -170,18 +170,7 @@ func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucket string) {
 		AccessControlList: p.Grants,
 	}
 
-	// Loop through grants and add types
-	for i := range policy.AccessControlList {
-		policy.AccessControlList[i].XmlnsXsi = types.XsiNS
-		policy.AccessControlList[i].Grantee.Type = "CanonicalUser"
-	}
-
-	w.Header().Set("Content-Type", "application/xml")
-	w.WriteHeader(http.StatusOK)
-	if err := xml.NewEncoder(w).Encode(policy); err != nil {
-		log.Println("XML encode error:", err)
-	}
-
+	responder.SendXML(w, http.StatusOK, policy)
 }
 
 func HandleListObjects(w http.ResponseWriter, r *http.Request) {
