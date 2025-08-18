@@ -11,6 +11,7 @@ import (
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
@@ -33,8 +34,7 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["policy"]; ok {
-		log.Println("Policy query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Policy query parameter is not supported", "", "")
+		handleGetBucketPolicy(w, r, bucket)
 		return
 	}
 	if _, ok := q["tagging"]; ok {
@@ -144,6 +144,29 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	HandleListObjects(w, r)
+}
+
+func handleGetBucketPolicy(w http.ResponseWriter, r *http.Request, bucket string) {
+	// Get hostId and requestId
+	hostID := middleware.GetHostID(r)
+	reqID := middleware.GetRequestID(r)
+
+	// Validate bucket
+	if bucket == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucket", "Bucket name is required", reqID, hostID)
+		return
+	}
+
+	// Verify the bucket does exist
+	if !util.BucketExists(bucket) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket",
+			"The specified bucket does not exist", reqID, hostID)
+		return
+	}
+
+	// Respond with no policy since we don't have policy management
+	responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucketPolicy",
+		"The bucket policy does not exist", reqID, hostID)
 }
 
 func handleGetBucketLocation(w http.ResponseWriter, r *http.Request, bucket string) {
