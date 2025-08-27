@@ -210,5 +210,8 @@ func isIgnored(name string) bool {
 	if name == ".DS_Store" {
 		return true
 	}
+	if strings.HasPrefix(name, ".ob") {
+		return true
+	}
 	return false
 }

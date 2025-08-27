@@ -1,7 +1,6 @@
 package bucket
 
 import (
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
@@ -9,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
@@ -34,32 +34,32 @@ func CreateBucket(bucketName string, owner types.UserObject) error {
 
 	log.Println("Created bucket:", bucketName)
 
-	permissionsFile, err := os.Create(filePath + ".obpermissions")
-	if err != nil {
-		log.Println("Error creating permissions file:", err)
-		return fmt.Errorf("error creating permissions file: %v", err)
-	}
-
-	defer permissionsFile.Close()
-
-	permissions := types.Bucket{
+	// Create base permissions file
+	err := SaveBucketPermissions(bucketName, &types.Bucket{
 		Name:         bucketName,
 		Owner:        owner,
 		ACL:          types.BUCKET_ACLPrivate, // Default ACL for new buckets
 		Grants:       []types.Grant{},
 		CreationDate: types.IsoTime(time.Now()),
+	})
+	if err != nil {
+		log.Println("Error saving permissions file:", err)
+		return fmt.Errorf("error saving permissions file: %v", err)
 	}
 
-	permissionsXML, err := xml.MarshalIndent(permissions, "", "  ")
+	// Grant creator permissions
+	grant := auth.NewGrant(owner.ID, owner.DisplayName, types.FULL_CONTROL)
+	err = auth.SaveNewGrant(bucketName, &grant)
 	if err != nil {
-		log.Println("Error marshalling permissions to XML:", err)
-		return fmt.Errorf("error marshalling permissions to XML: %v", err)
+		log.Println("Error granting creator permissions:", err)
+		return fmt.Errorf("error granting creator permissions: %v", err)
 	}
 
-	_, err = permissionsFile.WriteString(string(permissionsXML))
+	// Create blank tags file
+	err = SaveBucketTags(bucketName, nil)
 	if err != nil {
-		log.Println("Error writing to permissions file:", err)
-		return fmt.Errorf("error writing to permissions file: %v", err)
+		log.Println("Error creating tags file:", err)
+		return fmt.Errorf("error creating tags file: %v", err)
 	}
 
 	return nil

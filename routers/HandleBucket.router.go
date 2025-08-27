@@ -19,6 +19,11 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	if bucket == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Bucket name is required", "", "")
+		return
+	}
+
 	q := r.URL.Query()
 	if _, ok := q["acl"]; ok {
 		HandleBucketACL(w, r, bucket)
@@ -38,8 +43,7 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["tagging"]; ok {
-		log.Println("Tagging query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Tagging query parameter is not supported", "", "")
+		handleGetBucketTagging(w, r, bucket)
 		return
 	}
 	if _, ok := q["versioning"]; ok {
@@ -144,6 +148,28 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	HandleListObjects(w, r)
+}
+
+func handleGetBucketTagging(w http.ResponseWriter, r *http.Request, bucket string) {
+	// Get hostId and requestId
+	hostID := middleware.GetHostID(r)
+	reqID := middleware.GetRequestID(r)
+
+	// Validate bucket
+	if bucket == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucket", "Bucket name is required", reqID, hostID)
+		return
+	}
+
+	// Verify the bucket does exist
+	if !util.BucketExists(bucket) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket",
+			"The specified bucket does not exist", reqID, hostID)
+		return
+	}
+
+	// Get bucket tagging
+
 }
 
 func handleGetBucketPolicy(w http.ResponseWriter, r *http.Request, bucket string) {

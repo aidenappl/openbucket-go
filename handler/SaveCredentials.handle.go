@@ -17,7 +17,7 @@ func SaveCredentials(creds *types.Authorization) error {
 		return fmt.Errorf("credentials cannot be nil")
 	}
 
-	filePath := "authorizations.xml"
+	filePath := "buckets/authorizations.xml"
 
 	var existingAuthorizations types.Authorizations
 	if _, err := os.Stat(filePath); err == nil {

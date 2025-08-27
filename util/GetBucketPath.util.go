@@ -17,5 +17,5 @@ func GetBucketMetadataPath(bucketName string) string {
 	}
 
 	// Structure metadata file path
-	return "buckets/" + bucketName + ".obpermissions"
+	return "buckets/" + bucketName + "/.obpermissions"
 }

@@ -213,14 +213,6 @@ func handleNewBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create new grant giving owner full control
-	newGrant := auth.NewGrant(session.KeyID, session.Name, types.FULL_CONTROL)
-	if err := auth.SaveNewGrant(bucketName, &newGrant); err != nil {
-		log.Println("Error creating new user permissions:", err)
-		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error creating new user permissions: %v", err), requestID, hostID)
-		return
-	}
-
 	// Success response
 	responder.SendXML(w, http.StatusOK, types.CreateBucketResult{
 		Location: fmt.Sprintf("/%s", bucketName),

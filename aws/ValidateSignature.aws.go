@@ -172,7 +172,7 @@ func hmacSHA256(key []byte, message string) []byte {
 }
 
 func loadSecretKeyByAccessKey(accessKey string) (string, error) {
-	file, err := os.Open("authorizations.xml")
+	file, err := os.Open("buckets/authorizations.xml")
 	if err != nil {
 		return "", fmt.Errorf("error opening Authorizations file: %w", err)
 	}

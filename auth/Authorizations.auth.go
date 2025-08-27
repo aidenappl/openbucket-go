@@ -9,7 +9,7 @@ import (
 )
 
 func LoadAuthorizations() (*types.Authorizations, error) {
-	file, err := os.Open("authorizations.xml")
+	file, err := os.Open("buckets/authorizations.xml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open authorizations file: %v", err)
 	}
