@@ -53,6 +53,7 @@ func CreateObject(filePath string, key string, bucket string, bodyContent io.Rea
 	}
 
 	metadata := &types.ObjectMetadata{
+		Xmlns:        "http://s3.amazonaws.com/doc/2006-03-01/",
 		ETag:         etag,
 		Key:          key,
 		Bucket:       bucket,
@@ -65,20 +66,22 @@ func CreateObject(filePath string, key string, bucket string, bodyContent io.Rea
 	}
 
 	metadataFilePath := filePath + ".obmeta"
-	metadataFile, err := os.Create(metadataFilePath)
-	if err != nil {
-		log.Println("Error saving metadata:", err)
-		return nil, err
-	}
-	defer metadataFile.Close()
-
-	metadataXML, err := xml.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		log.Println("Error marshalling metadata to XML:", err)
+	tmp := metadataFilePath + ".tmp"
+	if err := os.MkdirAll(filepath.Dir(tmp), 0o755); err != nil {
 		return nil, err
 	}
 
-	_, err = metadataFile.WriteString(string(metadataXML))
+	buf, err := xml.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+
+	buf = append([]byte(xml.Header), buf...)
+	if err := os.WriteFile(tmp, buf, 0o644); err != nil {
+		return nil, err
+	}
+
+	err = os.Rename(tmp, metadataFilePath)
 	if err != nil {
 		return nil, err
 	}

@@ -3,11 +3,9 @@ package types
 import "encoding/xml"
 
 type Bucket struct {
-	XMLName xml.Name `xml:"Bucket"`
-	// Default namespace for all child elements
-	Xmlns string `xml:"xmlns,attr"` // set to "http://s3.amazonaws.com/doc/2006-03-01/"
-	// Declare the xsi namespace once at the root
-	XmlnsXsi string `xml:"xmlns:xsi,attr,omitempty"` // set to "http://www.w3.org/2001/XMLSchema-instance"
+	XMLName  xml.Name `xml:"Bucket"`
+	Xmlns    string   `xml:"xmlns,attr"`
+	XmlnsXsi string   `xml:"xmlns:xsi,attr,omitempty"`
 
 	Name         string     `xml:"Name" json:"name"`
 	CreationDate IsoTime    `xml:"CreationDate" json:"creation_date"`
