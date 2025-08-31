@@ -9,11 +9,17 @@ type TagSet struct {
 	Tag     []Tag    `xml:"Tag"`
 }
 
+type ETag string
+
+func (e ETag) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
+	return enc.EncodeElement(`"`+string(e)+`"`, start) // S3 quotes ETag
+}
+
 // ObjectMetadata represents the metadata of an object in a bucket.
 type ObjectMetadata struct {
 	Xmlns string `xml:"xmlns,attr,omitempty"` // set to "http://s3.amazonaws.com/doc/2006-03-01/" if you want the S3 ns
 
-	ETag   string `xml:"ETag" json:"etag"`
+	ETag   ETag   `xml:"ETag" json:"etag"`
 	Bucket string `xml:"Bucket" json:"bucket"`
 	Key    string `xml:"Key" json:"key"`
 
@@ -47,14 +53,18 @@ type CommonPrefix struct {
 }
 
 type ObjectList struct {
-	XMLName        xml.Name         `xml:"ListBucketResult"`
-	Xmlns          string           `xml:"xmlns,attr,omitempty"` // set same ns if desired
-	Name           string           `xml:"Name"`
-	Prefix         string           `xml:"Prefix"`
-	Delimiter      string           `xml:"Delimiter,omitempty"`
-	MaxKeys        int              `xml:"MaxKeys"`
-	IsTruncated    bool             `xml:"IsTruncated"`
-	EncodingType   string           `xml:"EncodingType,omitempty"`
-	Contents       []ObjectMetadata `xml:"Contents"`
-	CommonPrefixes []CommonPrefix   `xml:"CommonPrefixes,omitempty"`
+	XMLName               xml.Name         `xml:"ListBucketResult"`
+	Xmlns                 string           `xml:"xmlns,attr,omitempty"` // set to S3 ns
+	IsTruncated           bool             `xml:"IsTruncated"`
+	Contents              []ObjectMetadata `xml:"Contents"`
+	Name                  string           `xml:"Name"`
+	Prefix                string           `xml:"Prefix"`
+	Delimiter             string           `xml:"Delimiter,omitempty"`
+	MaxKeys               int              `xml:"MaxKeys"`
+	CommonPrefixes        []CommonPrefix   `xml:"CommonPrefixes,omitempty"`
+	EncodingType          string           `xml:"EncodingType,omitempty"`      // "url" if requested
+	KeyCount              int              `xml:"KeyCount"`                    // number of keys in this page
+	ContinuationToken     string           `xml:"ContinuationToken,omitempty"` // echo input if you want
+	NextContinuationToken string           `xml:"NextContinuationToken,omitempty"`
+	StartAfter            string           `xml:"StartAfter,omitempty"`
 }

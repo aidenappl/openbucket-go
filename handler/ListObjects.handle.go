@@ -193,6 +193,7 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 		Prefix:         prefix,
 		Delimiter:      delimiter,
 		MaxKeys:        maxKeys,
+		KeyCount:       len(contents),
 		IsTruncated:    isTruncated,
 		Contents:       contents,
 		CommonPrefixes: cps,

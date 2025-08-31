@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/aidenappl/openbucket-go/types"
 )
 
-func GenerateETag(filePath string) (string, error) {
+func GenerateETag(filePath string) (types.ETag, error) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
