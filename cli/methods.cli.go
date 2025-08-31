@@ -62,7 +62,11 @@ func generateCredentials(cmd *cobra.Command, args []string) {
 	}
 	creds := handler.GenerateCredentials()
 	creds.Name = name
-	handler.SaveCredentials(creds)
+	err := handler.SaveCredentials(creds)
+	if err != nil {
+		fmt.Println("Error saving credentials:", err)
+		return
+	}
 	fmt.Printf("Generated Credentials:\nAccess Key ID: %s\nSecret Access Key: %s\n", creds.KeyID, creds.SecretKey)
 }
 

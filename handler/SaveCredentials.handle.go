@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 
 	"log"
 	"os"
@@ -19,17 +20,22 @@ func SaveCredentials(creds *types.Authorization) error {
 
 	filePath := "buckets/authorizations.xml"
 
-	var existingAuthorizations types.Authorizations
-	if _, err := os.Stat(filePath); err == nil {
+	existingAuthorizations, err := loadExistingAuthorizations(filePath)
+	if err != nil {
+		return err
+	}
 
-		xmlData, err := ioutil.ReadFile(filePath)
+	if existingAuthorizations == nil {
+		err = createBlankAuthorizationsFile(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to read existing XML file: %v", err)
+			return err
 		}
-
-		err = xml.Unmarshal(xmlData, &existingAuthorizations)
+		existingAuthorizations, err = loadExistingAuthorizations(filePath)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal existing XML data: %v", err)
+			return err
+		}
+		if existingAuthorizations == nil {
+			return fmt.Errorf("failed to initialize authorizations")
 		}
 	}
 
@@ -52,6 +58,7 @@ func SaveCredentials(creds *types.Authorization) error {
 		return fmt.Errorf("failed to marshal updated XML data: %v", err)
 	}
 
+	xmlData = append([]byte(xml.Header), xmlData...)
 	err = ioutil.WriteFile(filePath, xmlData, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write updated XML file: %v", err)
@@ -59,4 +66,49 @@ func SaveCredentials(creds *types.Authorization) error {
 
 	log.Printf("Credentials saved to %s\n", filePath)
 	return nil
+}
+
+// loadExistingAuthorizations reads and unmarshals existing authorizations from file
+// Returns empty Authorizations struct if file doesn't exist
+func loadExistingAuthorizations(filePath string) (*types.Authorizations, error) {
+	var authorizations types.Authorizations
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// File doesn't exist, return empty authorizations
+		return nil, nil
+	}
+
+	// File exists, read and unmarshal it
+	xmlData, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read existing XML file: %v", err)
+	}
+
+	err = xml.Unmarshal(xmlData, &authorizations)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal existing XML data: %v", err)
+	}
+
+	return &authorizations, nil
+}
+
+// createBlankAuthorizationsFile creates a new empty authorizations file
+func createBlankAuthorizationsFile(filePath string) error {
+	blankAuthorizations := types.Authorizations{}
+
+	// atomic write
+	tmp := filePath + ".tmp"
+	if err := os.MkdirAll(filepath.Dir(tmp), 0o755); err != nil {
+		return err
+	}
+	buf, err := xml.MarshalIndent(blankAuthorizations, "", "  ")
+	if err != nil {
+		return err
+	}
+	buf = append([]byte(xml.Header), buf...)
+	if err := os.WriteFile(tmp, buf, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, filePath)
 }
