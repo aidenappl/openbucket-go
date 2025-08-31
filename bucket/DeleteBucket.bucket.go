@@ -9,6 +9,7 @@ import (
 
 // Delete Bucket is a destructive handler to removeAll files at a specified bucket
 func DeleteBucket(bucketName string) error {
+	// TODO: Repair
 	// validate bucketName
 	if bucketName == "" {
 		return fmt.Errorf("bucket name cannot be empty")
@@ -17,12 +18,6 @@ func DeleteBucket(bucketName string) error {
 	// lookup bucket
 	if !util.BucketExists(bucketName) {
 		return fmt.Errorf("bucket %s does not exist", bucketName)
-	}
-
-	// Delete metadata file
-	err := os.Remove(util.GetBucketMetadataPath(bucketName))
-	if err != nil {
-		return fmt.Errorf("error deleting metadata file for bucket %s: %w", bucketName, err)
 	}
 
 	// delete bucket

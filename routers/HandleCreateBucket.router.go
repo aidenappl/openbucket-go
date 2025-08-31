@@ -11,7 +11,6 @@ import (
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
-	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
@@ -196,18 +195,22 @@ func handleNewBucket(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: integrate with IAM to verify permissions, right now if an authorized user anyone can create buckets
 
-	// Check if bucket exists
-	if util.BucketExists(bucketName) {
+	// Get bucket, check if exists
+	b, err := bucket.GetBucket(bucketName)
+	if err != nil {
+		log.Println("Error getting bucket:", err)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error getting bucket: %v", err), requestID, hostID)
+		return
+	}
+
+	if b != nil {
 		log.Println("Bucket already exists:", bucketName)
-		responder.SendXMLError(w, http.StatusConflict, "BucketAlreadyExists", "The requested bucket name is not available", requestID, hostID)
+		responder.SendXMLError(w, http.StatusConflict, "BucketAlreadyExists", fmt.Sprintf("Bucket already exists: %s", bucketName), requestID, hostID)
 		return
 	}
 
 	// Create Base Bucket
-	if err := bucket.CreateBucket(bucketName, types.UserObject{
-		ID:          session.KeyID,
-		DisplayName: session.Name,
-	}); err != nil {
+	if err := bucket.CreateBucket(bucketName, session.ID); err != nil {
 		log.Println("Error creating bucket:", err)
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error creating bucket: %v", err), requestID, hostID)
 		return
@@ -219,7 +222,7 @@ func handleNewBucket(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handleGrant(name string, value string, bucket string, grant *types.Grant) error {
+func handleGrant(name string, value string, bucketName string, grant *types.Grant) error {
 	// Convert ACL
 	reqACL := types.AWSHeaderToACL(name)
 	if reqACL == types.ACLUnknown {
@@ -252,7 +255,7 @@ func handleGrant(name string, value string, bucket string, grant *types.Grant) e
 		}
 
 		// Check if user has existing bucket permissions
-		destinationGrant, err := auth.CheckUserPermissions(id, bucket)
+		destinationGrant, err := auth.CheckUserPermissions(id, bucketName)
 		if err != nil {
 			log.Println("Error checking user permissions:", err)
 			return fmt.Errorf("error checking user permissions: %v", err)
@@ -261,24 +264,29 @@ func handleGrant(name string, value string, bucket string, grant *types.Grant) e
 		if destinationGrant != nil {
 			// Check if requested grant is higher than existing permissions
 			if destinationGrant.Permission == reqACL {
-				log.Println("User already has the requested permissions for bucket:", bucket)
+				log.Println("User already has the requested permissions for bucket:", bucketName)
 				return nil
 			}
 
 			// Update existing permissions
 			destinationGrant.Permission = reqACL
-			if err := auth.UpdateGrant(bucket, destinationGrant); err != nil {
+			if err := auth.UpdateGrant(bucketName, destinationGrant); err != nil {
 				log.Println("Error updating user permissions:", err)
 				return fmt.Errorf("error updating user permissions: %v", err)
 			}
 		} else {
-			// Create new grant
-			newGrant := auth.NewGrant(id, authorization.Name, reqACL)
-			if err := auth.SaveNewGrant(bucket, &newGrant); err != nil {
-				log.Println("Error creating new user permissions:", err)
-				return fmt.Errorf("error creating new user permissions: %v", err)
+			// Get Bucket
+			bucket, err := bucket.GetBucket(bucketName)
+			if err != nil {
+				log.Println("Error getting bucket:", err)
+				return fmt.Errorf("error getting bucket: %v", err)
 			}
-			return nil
+			// Create new grant
+			err = auth.SaveNewGrant(auth.SaveNewGrantReq{
+				BucketID:   bucket.ID,
+				GranteeID:  authorization.ID,
+				Permission: reqACL,
+			})
 		}
 
 		return nil

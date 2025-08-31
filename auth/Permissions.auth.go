@@ -1,12 +1,10 @@
 package auth
 
 import (
-	"encoding/xml"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
@@ -15,81 +13,44 @@ const (
 	xsiNS = "http://www.w3.org/2001/XMLSchema-instance"
 )
 
-func permissionsPath(bucket string) string {
-	return filepath.Join("buckets", bucket, ".obpermissions")
-}
-
 func LoadBucketPermissions(bucketName string) (*types.Bucket, error) {
-	permissionsFile := permissionsPath(bucketName)
-	file, err := os.Open(permissionsFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open permissions file: %v", err)
-	}
-	defer file.Close()
-
-	var permissions types.Bucket
-	decoder := xml.NewDecoder(file)
-	if err := decoder.Decode(&permissions); err != nil {
-		return nil, fmt.Errorf("failed to decode permissions XML: %v", err)
-	}
-	return &permissions, nil
+	// TODO: REPAIR
+	return nil, nil
 }
 
-func NewGrant(keyID, displayName string, acl types.Permission) types.Grant {
-	return types.Grant{
-		Permission: acl,
-		Grantee: types.Grantee{
-			Type:        "CanonicalUser",
-			ID:          keyID,
-			DisplayName: displayName,
-		},
-		DateAdded: time.Now(),
-	}
+type SaveNewGrantReq struct {
+	BucketID   int
+	GranteeID  int
+	Permission types.Permission
 }
 
-func SaveNewGrant(bucketName string, grant *types.Grant) error {
-	permissions, err := LoadBucketPermissions(bucketName)
+func SaveNewGrant(req SaveNewGrantReq) error {
+	query := db.Psql.Insert("bucket_permissions").Columns(
+		"bucket_id",
+		"grantee_id",
+		"permission",
+		"date_added",
+	).Values(
+		req.BucketID,
+		req.GranteeID,
+		req.Permission,
+		time.Now(),
+	)
+
+	_, err := query.Exec()
 	if err != nil {
-		return fmt.Errorf("failed to load permissions: %v", err)
+		return fmt.Errorf("failed to save new grant: %v", err)
 	}
-	permissions.Grants = append(permissions.Grants, *grant)
-	return UpdateBucketPermissions(bucketName, permissions)
+
+	return nil
 }
 
 func UpdateGrant(bucketName string, grant *types.Grant) error {
-	permissions, err := LoadBucketPermissions(bucketName)
-	if err != nil {
-		return fmt.Errorf("failed to load permissions: %v", err)
-	}
-	for i, g := range permissions.Grants {
-		if g.Grantee.ID == grant.Grantee.ID {
-			permissions.Grants[i] = *grant
-			return UpdateBucketPermissions(bucketName, permissions)
-		}
-	}
-	// If not found, append (optional behavior)
-	permissions.Grants = append(permissions.Grants, *grant)
-	return UpdateBucketPermissions(bucketName, permissions)
+	// TODO: Repair
+	return nil
 }
 
 func UpdateBucketPermissions(bucket string, metadata *types.Bucket) error {
-	// atomic write
-	tmp := permissionsPath(bucket) + ".tmp"
-	if err := os.MkdirAll(filepath.Dir(tmp), 0o755); err != nil {
-		return err
-	}
-
-	metadata.Xmlns = "http://s3.amazonaws.com/doc/2006-03-01/"
-
-	buf, err := xml.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	buf = append([]byte(xml.Header), buf...)
-	if err := os.WriteFile(tmp, buf, 0o644); err != nil {
-		return err
-	}
-
-	return os.Rename(tmp, permissionsPath(bucket))
+	// TODO: Repair
+	return nil
 }

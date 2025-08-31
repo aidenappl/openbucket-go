@@ -23,10 +23,7 @@ func createBucket(cmd *cobra.Command, args []string) {
 	bucketName := args[0]
 	fmt.Printf("Creating bucket: %s\n", bucketName)
 
-	err := bucket.CreateBucket(bucketName, types.UserObject{
-		ID:          "OPENBUCKET_CLI",
-		DisplayName: "OpenBucket CLI",
-	})
+	err := bucket.CreateBucket(bucketName, 0)
 	if err != nil {
 		log.Println("Error creating bucket:", err)
 		return

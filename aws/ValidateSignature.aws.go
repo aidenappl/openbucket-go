@@ -3,16 +3,16 @@ package aws
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/xml"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/env"
 )
 
@@ -68,12 +68,16 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		log.Println("Error loading secret key for Access Key:", accessKey, err)
 		return false
 	}
+	if secretKey == nil {
+		log.Println("Secret Key not found for Access Key:", accessKey)
+		return false
+	}
 
 	canonicalRequest := buildCanonicalRequest(r, rawSH, amzContentSHA256)
 
 	stringToSign := buildStringToSign(date, env.Region, "s3", canonicalRequest)
 
-	signingKey := getSigningKey(secretKey, date, env.Region, "s3")
+	signingKey := getSigningKey(*secretKey, date, env.Region, "s3")
 
 	computedSignature := computeSignature(signingKey, stringToSign)
 
@@ -171,30 +175,22 @@ func hmacSHA256(key []byte, message string) []byte {
 	return h.Sum(nil)
 }
 
-func loadSecretKeyByAccessKey(accessKey string) (string, error) {
-	file, err := os.Open("buckets/authorizations.xml")
+func loadSecretKeyByAccessKey(accessKey string) (*string, error) {
+	query, err := db.Psql.Select(
+		"secret_key",
+	).From("authorizations").Where(sq.Eq{"key_id": accessKey}).Query()
 	if err != nil {
-		return "", fmt.Errorf("error opening Authorizations file: %w", err)
+		return nil, fmt.Errorf("error querying secret key: %w", err)
 	}
-	defer file.Close()
+	defer query.Close()
 
-	var authorizations struct {
-		Authorizations []struct {
-			AccessKeyID string `xml:"KEY_ID"`
-			SecretKey   string `xml:"SECRET_KEY"`
-		} `xml:"Authorization"`
-	}
-
-	decoder := xml.NewDecoder(file)
-	if err := decoder.Decode(&authorizations); err != nil {
-		return "", fmt.Errorf("error parsing Authorizations XML: %w", err)
-	}
-
-	for _, authorization := range authorizations.Authorizations {
-		if authorization.AccessKeyID == accessKey {
-			return authorization.SecretKey, nil
+	var secretKey string
+	if query.Next() {
+		if err := query.Scan(&secretKey); err != nil {
+			return nil, fmt.Errorf("error scanning secret key: %w", err)
 		}
+		return &secretKey, nil
 	}
 
-	return "", fmt.Errorf("secret key not found for access key: %s", accessKey)
+	return nil, fmt.Errorf("secret key not found for access key: %s", accessKey)
 }

@@ -2,18 +2,16 @@ package middleware
 
 import (
 	"context"
-	"encoding/xml"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/aws"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/env"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/gorilla/mux"
@@ -61,7 +59,7 @@ func HalfAuthorized(next http.HandlerFunc) http.HandlerFunc {
 func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		bucket, key := vars["bucket"], vars["key"]
+		bucketName, key := vars["bucket"], vars["key"]
 		requestID, hostID := GetRequestID(r), GetHostID(r)
 		ctx := r.Context()
 
@@ -76,27 +74,23 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Get the permissions for the bucket
-		perms, err := auth.LoadBucketPermissions(bucket)
+		perms, err := bucket.GetBucket(bucketName)
 		if err != nil {
-			deny("Error loading permissions for bucket "+bucket, err)
+			deny("Error loading permissions for bucket "+bucketName, err)
 			return
 		}
 		if perms != nil {
 			ctx = context.WithValue(ctx, PermissionsContextKey, perms)
 		}
 
-		// Deny access to metadata files directly
-		if strings.HasSuffix(key, ".obmeta") {
-			deny("Attempted to access metadata file directly: "+key, nil)
+		// Load object metadata
+		obj, err := objects.GetObject(bucketName, key)
+		if err != nil {
+			deny("Error loading object metadata for "+key, err)
 			return
 		}
-
-		// Load object metadata if available
-		if md, err := loadObjectMetadata(bucket, key); err == nil {
-			ctx = context.WithValue(ctx, MetadataContextKey, md)
-		} else if !errors.Is(err, os.ErrNotExist) {
-			deny("Error loading object metadata", err)
-			return
+		if obj != nil {
+			ctx = context.WithValue(ctx, MetadataContextKey, obj)
 		}
 
 		// Do a fast path check for public access or ACL permissions
@@ -119,7 +113,7 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Check if the user exists
-		if bucket == "" {
+		if bucketName == "" {
 			session, err := auth.CheckUserExists(keyID)
 			if err != nil {
 				deny("Unauthorized: "+err.Error(), nil)
@@ -129,7 +123,7 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Authorize against the bucket ACL
-		session, err := authoriseByACL(keyID, bucket, r)
+		session, err := authoriseByACL(keyID, bucketName, r)
 		if err != nil {
 			deny("Forbidden: "+err.Error(), nil)
 			return
@@ -140,25 +134,6 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		// serve the request with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
-}
-
-// loadObjectMetadata loads the metadata for the specified object.
-func loadObjectMetadata(bucket, key string) (*types.ObjectMetadata, error) {
-	if bucket == "" || key == "" {
-		return nil, nil
-	}
-	metaPath := filepath.Join("buckets", bucket, key+".obmeta")
-	f, err := os.Open(metaPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var md types.ObjectMetadata
-	if err := xml.NewDecoder(f).Decode(&md); err != nil {
-		return nil, err
-	}
-	return &md, nil
 }
 
 // isFastPathAllowed checks if the request can be served without further permission checks
