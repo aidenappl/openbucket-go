@@ -62,7 +62,7 @@ func generateCredentials(cmd *cobra.Command, args []string) {
 	}
 	creds := handler.GenerateCredentials()
 	creds.Name = name
-	err := handler.SaveCredentials(creds)
+	err := auth.SaveCredentials(creds)
 	if err != nil {
 		fmt.Println("Error saving credentials:", err)
 		return

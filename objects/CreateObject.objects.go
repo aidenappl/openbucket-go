@@ -53,15 +53,13 @@ func CreateObject(filePath string, key string, bucket string, bodyContent io.Rea
 	}
 
 	metadata := &types.ObjectMetadata{
-		Xmlns:        "http://s3.amazonaws.com/doc/2006-03-01/",
 		ETag:         etag,
 		Key:          key,
-		Bucket:       bucket,
 		Owner:        *user,
 		Public:       false,
 		LastModified: types.IsoTime(time.Now()),
 		UploadedAt:   types.IsoTime(time.Now()),
-		VersionId:    "1",
+		VersionID:    1,
 		Size:         stat.Size(),
 	}
 

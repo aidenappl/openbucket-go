@@ -43,7 +43,7 @@ func NewGrant(keyID, displayName string, acl types.Permission) types.Grant {
 			ID:          keyID,
 			DisplayName: displayName,
 		},
-		DateAdded: types.IsoTime(time.Now()),
+		DateAdded: time.Now(),
 	}
 }
 

@@ -40,7 +40,7 @@ func CreateBucket(bucketName string, owner types.UserObject) error {
 		Owner:        owner,
 		ACL:          types.BUCKET_ACLPrivate, // Default ACL for new buckets
 		Grants:       []types.Grant{},
-		CreationDate: types.IsoTime(time.Now()),
+		CreationDate: time.Now(),
 	})
 	if err != nil {
 		log.Println("Error saving permissions file:", err)

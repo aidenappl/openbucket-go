@@ -39,7 +39,7 @@ var DB = func() *sql.DB {
 	return db
 }()
 
-var Psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+var Psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar).RunWith(DB)
 
 var ErrNoRows = sql.ErrNoRows
 

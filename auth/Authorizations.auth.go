@@ -1,75 +1,117 @@
 package auth
 
 import (
-	"encoding/xml"
+	"database/sql"
 	"fmt"
-	"os"
+	"log"
+	"time"
 
+	sq "github.com/Masterminds/squirrel"
+	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func LoadAuthorizations() (*types.Authorizations, error) {
-	file, err := os.Open("buckets/authorizations.xml")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open authorizations file: %v", err)
+func SaveCredentials(creds *types.Authorization) error {
+	if creds == nil {
+		return fmt.Errorf("credentials cannot be nil")
 	}
-	defer file.Close()
+	if creds.KeyID == "" || creds.SecretKey == "" {
+		return fmt.Errorf("credentials KeyID and SecretKey cannot be empty")
+	}
+	if creds.Name == "" {
+		return fmt.Errorf("credentials Name cannot be empty")
+	}
+	if creds.DateCreated.IsZero() {
+		creds.DateCreated = time.Now()
+	}
+
+	// Insert using Squirrel
+	query := db.Psql.
+		Insert("authorizations").
+		Columns("name", "key_id", "secret_key", "date_created").
+		Values(creds.Name, creds.KeyID, creds.SecretKey, creds.DateCreated).
+		Suffix("RETURNING id")
+
+	// Run the query and fetch the new ID
+	var id int
+	err := query.QueryRow().Scan(&id)
+	if err != nil {
+		return fmt.Errorf("failed to insert credentials: %w", err)
+	}
+	creds.ID = id
+
+	log.Printf("✅ Credentials saved for %s (id=%d)\n", creds.Name, creds.ID)
+	return nil
+}
+
+func LoadAuthorizations() (*types.Authorizations, error) {
+	rows, err := db.Psql.
+		Select("id", "name", "key_id", "secret_key", "date_created").
+		From("authorizations").
+		Query()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query authorizations: %v", err)
+	}
+	defer rows.Close()
 
 	var authorizations types.Authorizations
-	decoder := xml.NewDecoder(file)
-	err = decoder.Decode(&authorizations)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode authorizations XML: %v", err)
+	for rows.Next() {
+		var auth types.Authorization
+		if err := rows.Scan(&auth.ID, &auth.Name, &auth.KeyID, &auth.SecretKey, &auth.DateCreated); err != nil {
+			return nil, fmt.Errorf("failed to scan authorization: %v", err)
+		}
+		authorizations.Authorizations = append(authorizations.Authorizations, auth)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate over authorizations: %v", err)
 	}
 
 	return &authorizations, nil
 }
 
 func CheckUserExists(keyID string) (*types.Authorization, error) {
-	authorizations, err := LoadAuthorizations()
+	row := db.Psql.
+		Select("id", "name", "key_id", "secret_key", "date_created").
+		From("authorizations").
+		Where(sq.Eq{"key_id": keyID}).
+		QueryRow()
+
+	var a types.Authorization
+	err := row.Scan(&a.ID, &a.Name, &a.KeyID, &a.SecretKey, &a.DateCreated)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to load authorizations: %v", err)
+		return nil, fmt.Errorf("db error: %v", err)
 	}
-
-	for _, auth := range authorizations.Authorizations {
-		if auth.KeyID == keyID {
-			return &auth, nil
-		}
-	}
-
-	return nil, nil
+	return &a, nil
 }
 
 func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
+	row := db.Psql.
+		Select(
+			"bp.permission",
+			"bp.date_added",
+			"a.key_id",
+			"a.name",
+		).
+		From("bucket_permissions bp").
+		Join("buckets b ON bp.bucket_id = b.id").
+		Join("authorizations a ON bp.grantee_id = a.id").
+		Where(sq.And{
+			sq.Eq{"a.key_id": keyID},
+			sq.Eq{"b.name": bucketName},
+		}).
+		QueryRow()
 
-	authorizations, err := LoadAuthorizations()
+	var grant types.Grant
+	err := row.Scan(&grant.Permission, &grant.DateAdded, &grant.Grantee.ID, &grant.Grantee.DisplayName)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("db error: %v", err)
 	}
-
-	var authorization *types.Authorization
-
-	for _, auth := range authorizations.Authorizations {
-		if auth.KeyID == keyID {
-			authorization = &auth
-			break
-		}
-	}
-
-	if authorization == nil {
-		return nil, fmt.Errorf("user with KEY_ID %s not found in authorizations", keyID)
-	}
-
-	permissions, err := LoadBucketPermissions(bucketName)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, grant := range permissions.Grants {
-		if grant.Grantee.ID == keyID {
-			return &grant, nil
-		}
-	}
-
-	return nil, nil
+	return &grant, nil
 }

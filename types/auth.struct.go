@@ -6,10 +6,11 @@ import (
 )
 
 type Authorization struct {
-	Name        string    `xml:"Name"`
-	KeyID       string    `xml:"KEY_ID"`
-	SecretKey   string    `xml:"SECRET_KEY"`
-	DateCreated time.Time `xml:"Date_Created"`
+	ID          int       `db:"id" json:"id"` // DB PK
+	Name        string    `xml:"Name" db:"name" json:"name"`
+	KeyID       string    `xml:"KEY_ID" db:"key_id" json:"key_id"`
+	SecretKey   string    `xml:"SECRET_KEY" db:"secret_key" json:"secret_key"`
+	DateCreated time.Time `xml:"Date_Created" db:"date_created" json:"date_created"`
 }
 
 type Authorizations struct {

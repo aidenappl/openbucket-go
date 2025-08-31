@@ -137,7 +137,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", tools.ContentType(filePath))
 	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))
 	w.Header().Set("x-amz-tagging-count", strconv.Itoa(len(metadata.Tags.Tag)))
-	w.Header().Set("x-amz-version-id", metadata.VersionId)
+	w.Header().Set("x-amz-version-id", strconv.Itoa(metadata.VersionID))
 
 	// Transfer file content
 	_, err = io.Copy(w, file)

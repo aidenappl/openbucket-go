@@ -37,7 +37,7 @@ func HandleListBuckets(w http.ResponseWriter, r *http.Request) {
 	for i := range bucketsList.Buckets.Bucket {
 		responseBuckets.Buckets.Bucket = append(responseBuckets.Buckets.Bucket, types.ListAllBucket{
 			Name:         bucketsList.Buckets.Bucket[i].Name,
-			CreationDate: bucketsList.Buckets.Bucket[i].CreationDate,
+			CreationDate: types.IsoTime(bucketsList.Buckets.Bucket[i].CreationDate),
 		})
 	}
 

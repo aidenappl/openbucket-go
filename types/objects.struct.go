@@ -1,56 +1,79 @@
 package types
 
 import (
+	"database/sql/driver"
 	"encoding/xml"
 )
+
+//
+// ========== TAGGING ==========
+//
+
+type Tag struct {
+	ID       int    `db:"id" json:"id"`
+	ObjectID int    `db:"object_id" json:"object_id"`
+	Key      string `xml:"Key" db:"tag_key" json:"key"`
+	Value    string `xml:"Value" db:"tag_value" json:"value"`
+}
 
 type TagSet struct {
 	XMLName xml.Name `xml:"Tags"`
 	Tag     []Tag    `xml:"Tag"`
 }
 
+//
+// ========== ETAG ==========
+//
+
 type ETag string
 
 func (e ETag) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
-	return enc.EncodeElement(`"`+string(e)+`"`, start) // S3 quotes ETag
+	// AWS S3 wraps ETag values in quotes
+	return enc.EncodeElement(`"`+string(e)+`"`, start)
 }
 
 func (e ETag) ToString() string {
 	return string(e)
 }
 
-// ObjectMetadata represents the metadata of an object in a bucket.
-type ObjectMetadata struct {
-	Xmlns string `xml:"xmlns,attr,omitempty"` // set to "http://s3.amazonaws.com/doc/2006-03-01/" if you want the S3 ns
+func (e ETag) Value() (driver.Value, error) { // for DB insert
+	return string(e), nil
+}
 
-	ETag   ETag   `xml:"ETag" json:"etag"`
-	Bucket string `xml:"Bucket" json:"bucket"`
-	Key    string `xml:"Key" json:"key"`
+//
+// ========== OBJECT METADATA ==========
+//
+
+type ObjectMetadata struct {
+	ID        int        `db:"id" json:"id"`
+	BucketID  int        `db:"bucket_id" json:"bucket_id"`
+	Key       string     `xml:"Key" db:"key" json:"key"`
+	ETag      ETag       `xml:"ETag" db:"etag" json:"etag"`
+	VersionID int        `xml:"VersionId" db:"version_id" json:"version_id"`
+	OwnerID   int        `db:"owner_id" json:"owner_id"`
+	Owner     UserObject `xml:"Owner" json:"owner"`
+
+	Public       bool    `xml:"Public" db:"public" json:"public"`
+	Size         int64   `xml:"Size" db:"size" json:"size"`
+	LastModified IsoTime `xml:"LastModified" db:"last_modified" json:"lastModified"`
+	UploadedAt   IsoTime `xml:"UploadedAt" db:"uploaded_at" json:"uploadedAt"`
 
 	Tags TagSet `xml:"Tags" json:"tags"`
-
-	VersionId         string `xml:"VersionId" json:"versionId"`
-	PreviousVersionId string `xml:"PreviousVersionId,omitempty" json:"previousVersionId,omitempty"`
-
-	Owner        UserObject `xml:"Owner" json:"owner"`
-	Public       bool       `xml:"Public" json:"public"`
-	Size         int64      `xml:"Size" json:"size"`
-	LastModified IsoTime    `xml:"LastModified" json:"lastModified"`
-	UploadedAt   IsoTime    `xml:"UploadedAt" json:"uploadedAt"`
 }
 
-type Tag struct {
-	Key   string `xml:"Key" json:"key"`
-	Value string `xml:"Value" json:"value"`
-}
+//
+// ========== OWNER ==========
+//
 
-// OwnerObject represents the owner of an object in the bucket.
 type UserObject struct {
-	ID          string `xml:"ID" json:"id"`
-	DisplayName string `xml:"DisplayName" json:"displayName"`
+	ID          string `xml:"ID" db:"id" json:"id"`
+	DisplayName string `xml:"DisplayName" db:"display_name" json:"displayName"`
 }
 
-// CommonPrefix represents a common prefix in the object listing.
+//
+// ========== OBJECT LISTING ==========
+//
+
 type CommonPrefix struct {
 	Prefix string `xml:"Prefix"`
 	Size   int64  `xml:"Size,omitempty"`
@@ -58,7 +81,7 @@ type CommonPrefix struct {
 
 type ObjectList struct {
 	XMLName               xml.Name         `xml:"ListBucketResult"`
-	Xmlns                 string           `xml:"xmlns,attr,omitempty"` // set to S3 ns
+	Xmlns                 string           `xml:"xmlns,attr,omitempty"`
 	IsTruncated           bool             `xml:"IsTruncated"`
 	Contents              []ObjectMetadata `xml:"Contents"`
 	Name                  string           `xml:"Name"`
@@ -66,9 +89,9 @@ type ObjectList struct {
 	Delimiter             string           `xml:"Delimiter,omitempty"`
 	MaxKeys               int              `xml:"MaxKeys"`
 	CommonPrefixes        []CommonPrefix   `xml:"CommonPrefixes,omitempty"`
-	EncodingType          string           `xml:"EncodingType,omitempty"`      // "url" if requested
-	KeyCount              int              `xml:"KeyCount"`                    // number of keys in this page
-	ContinuationToken     string           `xml:"ContinuationToken,omitempty"` // echo input if you want
+	EncodingType          string           `xml:"EncodingType,omitempty"`
+	KeyCount              int              `xml:"KeyCount"`
+	ContinuationToken     string           `xml:"ContinuationToken,omitempty"`
 	NextContinuationToken string           `xml:"NextContinuationToken,omitempty"`
 	StartAfter            string           `xml:"StartAfter,omitempty"`
 }
