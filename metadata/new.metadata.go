@@ -7,7 +7,7 @@ import (
 )
 
 func New(
-	bucket, key string, etag string, public bool, owner string, size int64,
+	bucket, key string, etag types.ETag, public bool, owner string, size int64,
 ) *types.ObjectMetadata {
 	return &types.ObjectMetadata{
 		ETag:         etag,

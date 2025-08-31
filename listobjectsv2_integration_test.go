@@ -237,7 +237,7 @@ func Test_ListObjectsV2_AWSCLI(t *testing.T) {
 			Key          string `json:"Key"`
 			Size         int64  `json:"Size"`
 			StorageClass string `json:"StorageClass"`
-			ETag         string `json:"ETag"` // may be empty if you don't emit it; not asserted
+			ETag         ETag   `json:"ETag"` // may be empty if you don't emit it; not asserted
 		} `json:"Contents"`
 	}
 

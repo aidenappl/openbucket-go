@@ -130,7 +130,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Structure response headers
-	w.Header().Set("ETag", metadata.ETag)
+	w.Header().Set("ETag", metadata.ETag.ToString())
 	w.Header().Set("X-Amz-Meta-owner-id", metadata.Owner.ID)
 	w.Header().Set("X-Amz-Meta-owner-display-name", metadata.Owner.DisplayName)
 	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))

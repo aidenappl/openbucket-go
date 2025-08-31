@@ -31,5 +31,5 @@ func GenerateETag(filePath string) (types.ETag, error) {
 	}
 
 	etag := hex.EncodeToString(hash.Sum(nil))
-	return etag, nil
+	return types.ETag(etag), nil
 }

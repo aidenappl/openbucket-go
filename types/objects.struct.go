@@ -15,6 +15,10 @@ func (e ETag) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
 	return enc.EncodeElement(`"`+string(e)+`"`, start) // S3 quotes ETag
 }
 
+func (e ETag) ToString() string {
+	return string(e)
+}
+
 // ObjectMetadata represents the metadata of an object in a bucket.
 type ObjectMetadata struct {
 	Xmlns string `xml:"xmlns,attr,omitempty"` // set to "http://s3.amazonaws.com/doc/2006-03-01/" if you want the S3 ns

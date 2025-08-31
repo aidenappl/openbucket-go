@@ -80,7 +80,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
 	if meta.ETag != "" {
-		w.Header().Set("ETag", meta.ETag)
+		w.Header().Set("ETag", meta.ETag.ToString())
 	}
 
 	w.WriteHeader(http.StatusOK)

@@ -12,7 +12,7 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func CreateObject(filePath string, key string, bucket string, bodyContent io.Reader, osContent *[]byte, user *types.UserObject) (*string, error) {
+func CreateObject(filePath string, key string, bucket string, bodyContent io.Reader, osContent *[]byte, user *types.UserObject) (*types.ETag, error) {
 	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
 		log.Println("Error creating directory:", err)
