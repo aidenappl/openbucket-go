@@ -9,6 +9,7 @@ var (
 	Port              = getEnv("PORT", "8080")
 	BypassPermissions = getEnv("BYPASS_PERMISSIONS", "false") == "true"
 	Region            = getEnv("REGION", "openbucket")
+	Database          = getEnvOrPanic("DATABASE")
 )
 
 func getEnv(key string, fallback string) string {

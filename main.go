@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/aidenappl/openbucket-go/cli"
+	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/routers"
@@ -13,6 +14,13 @@ import (
 )
 
 func startServer() {
+
+	// Ping database
+	if err := db.PingDB(); err != nil {
+		log.Fatal("Error pinging database:", err)
+	} else {
+		log.Println("✅ Database connection established")
+	}
 
 	// Create a new router
 	r := mux.NewRouter()
