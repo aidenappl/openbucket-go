@@ -93,6 +93,18 @@ aws configure
 
 ---
 
+## OpenBucket CLI
+
+The CLI functions are for "root" level commands that are inaccessible from the s3api (especially given this is not IAM connected)
+
+Right now this is extremely limited with the only support command being 
+
+```
+generate-credentials
+```
+
+---
+
 ## Design Notes
 
 - Folders: Just like AWS S3, OpenBucket doesn't store folders separately; prefixes in object keys (path/to/file) are parsed into "CommonPrefixes" at listing time.
