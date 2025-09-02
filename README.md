@@ -109,6 +109,7 @@ aws configure
 - [ ] Versioning support
 - [ ] Consolidating & cleaning code
 - [ ] Improving speeds
+- [ ] Completing OpenBucket CLI
 - [x] 100% coverage of CORE commands
 - [ ] 100% coverage of SECONDARY commands
 - [ ] 100% coverage of TERTIARY commands
