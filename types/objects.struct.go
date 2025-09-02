@@ -48,7 +48,7 @@ type ObjectMetadata struct {
 	ID        int        `db:"id" json:"id"`
 	BucketID  int        `db:"bucket_id" json:"bucket_id"`
 	Key       string     `xml:"Key" db:"key" json:"key"`
-	ETag      ETag       `xml:"ETag" db:"etag" json:"etag"`
+	ETag      *ETag      `xml:"ETag" db:"etag" json:"etag"`
 	VersionID int        `xml:"VersionId" db:"version_id" json:"version_id"`
 	OwnerID   int        `db:"owner_id" json:"owner_id"`
 	Owner     UserObject `xml:"Owner" json:"owner"`

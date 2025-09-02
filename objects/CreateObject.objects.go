@@ -26,12 +26,6 @@ func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent 
 	}
 	defer file.Close()
 
-	stat, err := file.Stat()
-	if err != nil {
-		log.Println("Error getting file info:", err)
-		return nil, err
-	}
-
 	if bodyContent != nil {
 		_, err = io.Copy(file, bodyContent)
 		if err != nil {
@@ -49,6 +43,12 @@ func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent 
 	etag, err := tools.GenerateETag(filePath)
 	if err != nil {
 		log.Println("Error generating ETag:", err)
+		return nil, err
+	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		log.Println("Error getting file info:", err)
 		return nil, err
 	}
 

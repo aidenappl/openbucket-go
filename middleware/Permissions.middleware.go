@@ -124,6 +124,15 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		// Check if requesting object for download
+		if r.URL.Path == fmt.Sprintf("/%s/%s", bucketName, key) && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			// Allow public access to the object if it is marked as public
+			if obj.Public {
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+		}
+
 		// Validate AWS signature if bypass is not enabled
 		if !validateAWSSignature(r) {
 			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)

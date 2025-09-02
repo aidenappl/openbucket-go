@@ -3,6 +3,7 @@ package objects
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/aidenappl/openbucket-go/db"
@@ -14,10 +15,20 @@ func DeleteObject(bucket types.Bucket, objectName string) error {
 	// Structure bucket
 	filePath := "buckets/" + bucket.Name
 
-	// Attempt to remove the object file
-	err := os.Remove(filePath + "/" + objectName)
-	if err != nil {
-		return fmt.Errorf("failed to delete object file: %v", err) // Return the error if deletion fails
+	// check if object or folder
+	if strings.HasSuffix(objectName, "/") {
+		folderName := strings.TrimSuffix(objectName, "/")
+		// Attempt to remove the folder
+		err := os.RemoveAll(filePath + "/" + folderName)
+		if err != nil {
+			return fmt.Errorf("failed to delete object folder: %v", err) // Return the error if deletion fails
+		}
+	} else {
+		// Attempt to remove the object file
+		err := os.Remove(filePath + "/" + objectName)
+		if err != nil {
+			return fmt.Errorf("failed to delete object file: %v", err) // Return the error if deletion fails
+		}
 	}
 
 	// Get the object

@@ -83,12 +83,14 @@ func deleteObject(w http.ResponseWriter, r *http.Request) {
 
 	// validate bucket name and object name
 	if bucketName == "" || objectName == "" {
+		log.Println("Bucket name or object name is empty")
 		responder.SendXMLError(w, http.StatusNotFound, "InvalidBucketOrObject", "The bucket name or object name is invalid", requestId, hostId)
 		return
 	}
 
 	// Check that bucket exists
 	if !util.BucketExists(bucketName) {
+		log.Println("Bucket does not exist locally")
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
 		return
 	}
@@ -101,6 +103,7 @@ func deleteObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if b == nil {
+		log.Println("Bucket does not exist")
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
 		return
 	}

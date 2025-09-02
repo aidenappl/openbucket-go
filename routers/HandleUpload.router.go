@@ -198,6 +198,13 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 			log.Println("Error creating directory:", err)
 			return
 		}
+		// create zero byte object in db
+		err = objects.CreateFolder(filePath, key, *bucketObj, *user)
+		if err != nil {
+			responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to create directory object", requestId, hostId)
+			log.Println("Error creating directory object:", err)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		log.Println("Directory created:", filePath)
 		return
