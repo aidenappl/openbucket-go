@@ -25,6 +25,22 @@
 
 ---
 
+## Why OpenBucket
+
+OpenBucket is an extension of one of my "1-Week Projects". 
+
+My goal with the short-term projects I select is to either learn a new language, skill, toolset or challenge myself technically.
+
+OpenBucket started as a small-scale GUI for S3 but branched into a curiosity of the inner-workings of many AWS services. 
+
+Now and moving forward I want OpenBucket to:
+
+- Be easily self-hosted whether within a container or on a desktop device.
+- Be navigable on a users hosted operating system.
+- Open more doors into building other AWS services.
+
+---
+
 ## Getting Started
 
 ### Requirements
@@ -77,13 +93,25 @@ aws configure
 
 ---
 
-# Design Notes
+## Design Notes
 
 - Folders: Just like AWS S3, OpenBucket doesn't store folders separately; prefixes in object keys (path/to/file) are parsed into "CommonPrefixes" at listing time.
 
 - ACLs & Permissions: Modeled after S3's AccessControlPolicy, with enums for bucket ACLs and object permissions.
 
 - Tags: Stored separately for buckets and objects (bucket_tags, object_tags).
+
+---
+
+## Pipeline
+
+- [ ] Hashing keys stored in DB
+- [ ] Versioning support
+- [ ] Consolidating & cleaning code
+- [ ] Improving speeds
+- [x] 100% coverage of CORE commands
+- [ ] 100% coverage of SECONDARY commands
+- [ ] 100% coverage of TERTIARY commands
 
 ---
 
