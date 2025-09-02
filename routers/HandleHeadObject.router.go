@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
@@ -31,10 +32,17 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if bucket exists
+	// Check if bucket exists in FS
 	if !util.BucketExists(bucketName) {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket",
 			"The specified bucket does not exist", requestId, hostId)
+		return
+	}
+
+	// Check bucket in the DB
+	b, err := bucket.GetBucket(bucketName)
+	if err != nil || b == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
 		return
 	}
 
