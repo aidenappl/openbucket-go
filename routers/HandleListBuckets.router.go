@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
@@ -15,9 +15,9 @@ func HandleListBuckets(w http.ResponseWriter, r *http.Request) {
 	session := middleware.RetrieveSession(r)
 
 	// List all buckets
-	bucketsList, err := handler.ListBucketsXML(&handler.ListBucketsParams{
-		Filter: &handler.ListBucketsParamFilter{
-			OwnerID: &session.KeyID,
+	bucketsList, err := bucket.ListBucketsXML(&bucket.ListBucketsParams{
+		Filter: &bucket.ListBucketsParamFilter{
+			OwnerID: &session.ID,
 		},
 	})
 	if err != nil {
