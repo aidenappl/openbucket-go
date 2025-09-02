@@ -2,6 +2,11 @@
 
 **OpenBucket Server** (openbucket-go) is an open-source, S3-compatible object storage API designed for local development, testing, and education. It provides an AWS S3-style interface so you can use the familiar aws s3api and SDKs against your own local service.
 
+### Associated Tools (in-development)
+
+- [OpenBucket Web](https://github.com/aidenappl/openbucket-web): Web interface to interact with OpenBucket
+- [OpenBucket API](https://github.com/aidenappl/openbucket-api): Backend handler for OpenBucket Web
+
 ---
 
 ## Features
@@ -193,4 +198,3 @@ Below you can see the coverage of version 1 and planned support for future relea
 | put-object-legal-hold                           | PUT    | HandleUpload             | 4       | FALSE | FALSE |
 | put-object-lock-configuration                   | PUT    | HandleCreateBucket       | 4       | FALSE | FALSE |
 | put-object-retention                            | PUT    | HandleUpload             | 4       | FALSE | FALSE |
-
