@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"encoding/xml"
 	"log"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
+	"github.com/aidenappl/openbucket-go/types"
 	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
@@ -47,8 +49,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["tagging"]; ok {
-		log.Println("Currently do not support tagging")
-		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "Tagging is not supported", requestId, hostId)
+		handlePutObjectTagging(w, r)
 		return
 	}
 	if _, ok := q["legal-hold"]; ok {
@@ -63,6 +64,64 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handleUpload(w, r)
+}
+
+func handlePutObjectTagging(w http.ResponseWriter, r *http.Request) {
+	// Get request variables
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	rawKey := vars["key"]
+
+	// Get hostID and requestID
+	hostId := middleware.GetHostID(r)
+	requestId := middleware.GetRequestID(r)
+
+	// Decode key if URL-encoded (supports spaces, etc.)
+	key, err := url.PathUnescape(rawKey)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidKey", "Failed to decode key", requestId, hostId)
+		log.Println("Error decoding key:", err)
+		return
+	}
+
+	// Validate bucket and key
+	if bucketName == "" || key == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucketOrKey", "Bucket and key must be provided", requestId, hostId)
+		log.Println("Bucket or key is empty")
+		return
+	}
+
+	// Lookup object
+	metadata := middleware.RetrieveMetadata(r)
+	if metadata == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
+		log.Println("Object not found:", key)
+		return
+	}
+
+	// Decode XML body
+	var taggingReq types.PutObjectTaggingRequest
+	if err := xml.NewDecoder(r.Body).Decode(&taggingReq); err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or did not validate against our published schema", requestId, hostId)
+		log.Println("Failed to parse tagging XML:", err)
+		return
+	}
+
+	// Delete all existing tags for overwriting
+	err = objects.DeleteAllObjectTags(metadata.BucketID, metadata.ID)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to delete existing object tags", requestId, hostId)
+		log.Println("Error deleting existing object tags:", err)
+		return
+	}
+
+	// Add new tags
+	err = objects.BulkCreateObjectTags(metadata.BucketID, metadata.ID, taggingReq.TagSet)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to add new object tags", requestId, hostId)
+		log.Println("Error adding new object tags:", err)
+		return
+	}
 }
 
 func handleMultipartUpload(w http.ResponseWriter, r *http.Request) {

@@ -50,6 +50,13 @@ func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetada
 		); err != nil {
 			return nil, fmt.Errorf("error scanning object metadata: %w", err)
 		}
+
+		// Get object tags
+		tags, err := GetObjectTags(obj.BucketID, obj.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get object tags: %w", err)
+		}
+		obj.Tags.Tag = tags
 	}
 
 	if obj.ID == 0 {

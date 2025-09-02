@@ -26,8 +26,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["tagging"]; ok {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "Tagging query parameter is not supported for download")
+		handleGetObjectTagging(w, r)
 		return
 	}
 	if _, ok := q["uploadId"]; ok {
@@ -56,6 +55,44 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handleDownload(w, r)
+}
+
+func handleGetObjectTagging(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	key := vars["key"]
+	// Get host & request from context
+	request := middleware.GetRequestID(r)
+	host := middleware.GetHostID(r)
+
+	// Validate bucket & key
+	if bucketName == "" || key == "" {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Bucket or key is empty")
+		return
+	}
+
+	// Get the object metadata
+	metadata := middleware.RetrieveMetadata(r)
+	if metadata == nil {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Object not found:", key)
+		return
+	}
+
+	resp := types.GetObjectTaggingResponse{
+		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
+	}
+
+	for _, tag := range metadata.Tags.Tag {
+		miniTag := types.Tag{
+			Key:   tag.Key,
+			Value: tag.Value,
+		}
+		resp.TagSet = append(resp.TagSet, miniTag)
+	}
+
+	responder.SendXML(w, http.StatusOK, resp)
 }
 
 func handleGetObjectAttributes(w http.ResponseWriter, r *http.Request) {
