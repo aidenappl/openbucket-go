@@ -22,8 +22,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 	if _, ok := q["acl"]; ok {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "ACL query parameter is not supported for download")
+		handleObjectACL(w, r)
 		return
 	}
 	if _, ok := q["tagging"]; ok {
@@ -37,8 +36,7 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["attributes"]; ok {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "UploadId query parameter is not supported for download")
+		handleGetObjectAttributes(w, r)
 		return
 	}
 	if _, ok := q["legal-hold"]; ok {
@@ -58,6 +56,94 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handleDownload(w, r)
+}
+
+func handleGetObjectAttributes(w http.ResponseWriter, r *http.Request) {
+	// Get request variables
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	key := vars["key"]
+	// Get host & request from context
+	request := middleware.GetRequestID(r)
+	host := middleware.GetHostID(r)
+
+	// Validate bucket & key
+	if bucketName == "" || key == "" {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Bucket or key is empty")
+		return
+	}
+
+	// Get the object metadata
+	metadata := middleware.RetrieveMetadata(r)
+	if metadata == nil {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Object not found:", key)
+		return
+	}
+
+	// Build the response
+	response := types.GetObjectAttributesResponse{
+		Xmlns:        "http://s3.amazonaws.com/doc/2006-03-01/",
+		ETag:         metadata.ETag.ToString(),
+		ObjectSize:   metadata.Size,
+		StorageClass: "STANDARD", // Currently do not support different storage classess
+		Checksum: &types.Checksum{ // Currently do not support checksum
+			CRC32:  "",
+			SHA1:   "",
+			SHA256: "",
+			CRC32C: "",
+		},
+	}
+
+	// Send success response
+	responder.SendXML(w, http.StatusOK, response)
+}
+
+func handleObjectACL(w http.ResponseWriter, r *http.Request) {
+	// Get request variables
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	key := vars["key"]
+	// Get host & request from context
+	request := middleware.GetRequestID(r)
+	host := middleware.GetHostID(r)
+
+	// Validate bucket & key
+	if bucketName == "" || key == "" {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Bucket or key is empty")
+		return
+	}
+
+	// Get the bucket
+	bucket := middleware.RetrieveBucket(r)
+	if bucket == nil {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Bucket not found:", bucketName)
+		return
+	}
+
+	response := types.GetObjectACLResponse{
+		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
+		Owner: bucket.Owner,
+	}
+
+	for _, grant := range bucket.Grants {
+		miniGrant := types.MinifiedGrant{
+			Grantee: types.Grantee{
+				XmlnsXsi:    "http://www.w3.org/2001/XMLSchema-instance",
+				XsiType:     "CanonicalUser",
+				ID:          grant.Grantee.ID,
+				DisplayName: grant.Grantee.DisplayName,
+			},
+			Permission: grant.Permission,
+		}
+		response.AccessControlList = append(response.AccessControlList, miniGrant)
+	}
+
+	// Send the response
+	responder.SendXML(w, http.StatusOK, response)
 }
 
 func handleDownload(w http.ResponseWriter, r *http.Request) {

@@ -39,6 +39,7 @@ func GetBucketGrants(bucketName string) ([]types.Grant, error) {
 		); err != nil {
 			return nil, fmt.Errorf("scan bucket grant: %w", err)
 		}
+		grant.Grantee.XsiType = "CanonicalUser"
 		grants = append(grants, grant)
 	}
 

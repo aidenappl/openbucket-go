@@ -26,9 +26,16 @@ type Grant struct {
 	DateAdded  time.Time  `xml:"DateAdded" db:"date_added" json:"date_added,omitempty"`
 }
 
+// Grant represents a single ACL grant
+type MinifiedGrant struct {
+	Grantee    Grantee    `xml:"Grantee"`
+	Permission Permission `xml:"Permission"`
+}
+
 type Grantee struct {
 	XMLName     xml.Name `xml:"Grantee"`
-	Type        string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr,omitempty" json:"type,omitempty"`
+	XmlnsXsi    string   `xml:"xmlns:xsi,attr,omitempty"`
+	XsiType     string   `xml:"xsi:type,attr"`
 	ID          string   `xml:"ID,omitempty" db:"id" json:"id,omitempty"`
 	DisplayName string   `xml:"DisplayName,omitempty" db:"display_name" json:"display_name,omitempty"`
 	URI         string   `xml:"URI,omitempty" db:"uri" json:"uri,omitempty"`
