@@ -40,3 +40,9 @@ type Grantee struct {
 	DisplayName string   `xml:"DisplayName,omitempty" db:"display_name" json:"display_name,omitempty"`
 	URI         string   `xml:"URI,omitempty" db:"uri" json:"uri,omitempty"`
 }
+
+type BucketTag struct {
+	ID    int    `db:"id" json:"id"`
+	Key   string `xml:"Key" db:"tag_key" json:"key"`
+	Value string `xml:"Value" db:"tag_value" json:"value"`
+}

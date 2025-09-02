@@ -150,26 +150,34 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 	HandleListObjects(w, r)
 }
 
-func handleGetBucketTagging(w http.ResponseWriter, r *http.Request, bucket string) {
+func handleGetBucketTagging(w http.ResponseWriter, r *http.Request, bucketName string) {
 	// Get hostId and requestId
 	hostID := middleware.GetHostID(r)
 	reqID := middleware.GetRequestID(r)
 
 	// Validate bucket
-	if bucket == "" {
+	if bucketName == "" {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucket", "Bucket name is required", reqID, hostID)
 		return
 	}
 
-	// Verify the bucket does exist
-	if !util.BucketExists(bucket) {
-		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket",
-			"The specified bucket does not exist", reqID, hostID)
+	// Get bucket from context
+	b := middleware.RetrieveBucket(r)
+
+	// Get tags from the db
+	tags, err := bucket.GetBucketTags(b.ID)
+	if err != nil {
+		log.Println("Error retrieving bucket tags:", err)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Unable to retrieve bucket tags", reqID, hostID)
 		return
 	}
 
-	// Get bucket tagging
+	response := types.GetBucketTaggingResponse{
+		Xmlns:  types.XsiNS_Default,
+		TagSet: *tags,
+	}
 
+	responder.SendXML(w, http.StatusOK, response)
 }
 
 func handleGetBucketPolicy(w http.ResponseWriter, r *http.Request, bucket string) {
