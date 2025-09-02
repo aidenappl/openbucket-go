@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
@@ -19,7 +20,7 @@ import (
 func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	bucketName := vars["bucket"]
 	destination := vars["key"]
 
 	requestId := middleware.GetRequestID(r)
@@ -41,9 +42,13 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Failed to unescape Copy Source", "", "")
 		return
 	}
-	filePath := filepath.Join("buckets", bucket, value)
+	filePath := filepath.Join("buckets", bucketName, value)
 
-	objectMetadata := objects.RetrieveObjectMetadata(filePath)
+	objectMetadata, err := objects.GetObject(bucketName, value, nil)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving source metadata", "", "")
+		return
+	}
 	if objectMetadata == nil {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "Source metadata does not exist", "", "")
 		return
@@ -59,12 +64,12 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check if user has permissions to source file
-	if !auth.UserHasPermissionToObject(session, grant, objectMetadata, bucket, value, auth.WritePermission) {
+	if !auth.UserHasPermissionToObject(session, grant, objectMetadata, bucketName, value, auth.WritePermission) {
 		responder.SendAccessDeniedXML(w, &requestId, &hostId)
 		return
 	}
 
-	destinationFilePath := filepath.Join("buckets", bucket, destination)
+	destinationFilePath := filepath.Join("buckets", bucketName, destination)
 
 	// check if destination file already exists
 	if _, err := os.Stat(destinationFilePath); !os.IsNotExist(err) {
@@ -79,10 +84,18 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	etag, err := objects.CreateObject(destinationFilePath, destination, bucket, nil, &input, &types.UserObject{
-		ID:          session.KeyID,
-		DisplayName: session.Name,
-	})
+	// Get the bucket
+	b, err := bucket.GetBucket(bucketName)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving bucket information", "", "")
+		return
+	}
+	if b == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "the requested bucket does not exist", "", "")
+		return
+	}
+
+	etag, err := objects.CreateObject(destinationFilePath, destination, *b, nil, &input, session)
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error creating destination object", "", "")
 		return

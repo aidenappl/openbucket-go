@@ -8,7 +8,6 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/aidenappl/openbucket-go/util"
@@ -21,7 +20,7 @@ func GetBucket(bucketName string) (*types.Bucket, error) {
 		"buckets.creation_date",
 		"buckets.acl",
 
-		"authorizations.id",
+		"authorizations.key_id",
 		"authorizations.name",
 	).From("buckets").
 		LeftJoin("authorizations ON buckets.owner_id = authorizations.id").
@@ -102,13 +101,13 @@ func GetBucketGrants(bucketName string) ([]types.Grant, error) {
 
 func CreateBucket(bucketName string, owner int) error {
 	// Does it already exist?
-	bucket, err := GetBucket(bucketName)
+	b, err := GetBucket(bucketName)
 	if err != nil {
 		log.Println("Error getting bucket:", err)
 		return fmt.Errorf("error getting bucket: %w", err)
 	}
 
-	if bucket != nil {
+	if b != nil {
 		log.Println("Bucket already exists:", bucketName)
 		return fmt.Errorf("bucket already exists: %s", bucketName)
 	}
@@ -134,7 +133,7 @@ func CreateBucket(bucketName string, owner int) error {
 	}
 
 	// Grant owner full permissions
-	err = auth.SaveNewGrant(auth.SaveNewGrantReq{
+	err = NewGrant(NewGrantReq{
 		BucketID:   bucketID,
 		GranteeID:  owner,
 		Permission: types.FULL_CONTROL,

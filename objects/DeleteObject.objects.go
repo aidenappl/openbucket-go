@@ -1,28 +1,38 @@
 package objects
 
-import "os"
+import (
+	"fmt"
+	"os"
+
+	sq "github.com/Masterminds/squirrel"
+	"github.com/aidenappl/openbucket-go/db"
+	"github.com/aidenappl/openbucket-go/types"
+)
 
 // DeleteObject removes an object from a bucket
-func DeleteObject(bucketName, objectName string) error {
+func DeleteObject(bucket types.Bucket, objectName string) error {
 	// Structure bucket
-	filePath := "buckets/" + bucketName
+	filePath := "buckets/" + bucket.Name
 
 	// Attempt to remove the object file
 	err := os.Remove(filePath + "/" + objectName)
 	if err != nil {
-		return err // Return the error if deletion fails
+		return fmt.Errorf("failed to delete object file: %v", err) // Return the error if deletion fails
 	}
 
-	// Remove the associated metadata file
-	err = os.Remove(filePath + "/" + objectName + ".obmeta")
+	// Remove object from the database
+	_, err = db.Psql.
+		Delete("objects").
+		Where(sq.Eq{"objects.bucket_id": bucket.ID, "objects.key": objectName}).
+		Exec()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete object from database: %v", err)
 	}
 
 	return nil // Return nil if deletion is successful
 }
 
 // DeleteObject removes an object from a bucket
-func DeleteVersionedObject(bucketName, objectName string, versionId string) error {
-	return DeleteObject(bucketName, objectName) // For simplicity, we treat versioned objects the same as regular objects TODO: implement versioning
+func DeleteVersionedObject(bucket types.Bucket, objectName string, versionId string) error {
+	return DeleteObject(bucket, objectName) // For simplicity, we treat versioned objects the same as regular objects TODO: implement versioning
 }

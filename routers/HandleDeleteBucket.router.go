@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/aidenappl/openbucket-go/bucket"
-	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
@@ -111,7 +111,7 @@ func HandleBucketDeletion(w http.ResponseWriter, r *http.Request) {
 	// TODO: use IAM based permissions to check for s3:DeleteBucket
 
 	// retrieve bucket permissions from context
-	bucketMetadata := middleware.RetrievePermissions(r)
+	bucketMetadata := middleware.RetrieveBucket(r)
 	if bucketMetadata == nil || bucketMetadata.Name != bucketName {
 		log.Println("Unauthorized access to bucket deletion")
 		responder.SendXMLError(w, http.StatusForbidden, "AccessDenied", "You do not have permission to delete this bucket", "", "")
@@ -134,7 +134,7 @@ func HandleBucketDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate bucket is empty
-	objects, err := handler.ListObjects(bucketName)
+	objects, err := objects.ListObjects(bucketName)
 	if err != nil {
 		log.Println("Error listing objects in bucket:", err)
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error listing objects in bucket", "", "")

@@ -39,7 +39,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if object exists
-	if !util.ObjectExists(bucketName, objectName) {
+	if !objects.ObjectExists(bucketName, objectName) {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey",
 			"Object not found", requestId, hostId)
 		return
@@ -65,7 +65,12 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get object metadata
-	meta := objects.RetrieveObjectMetadata(objPath)
+	meta, err := objects.GetObject(bucketName, objectName, nil)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving metadata for object", requestId, hostId)
+		log.Println("Error retrieving metadata for object:", objPath)
+		return
+	}
 	if meta == nil {
 		responder.SendAccessDeniedXML(w, &requestId, &hostId)
 		log.Println("Error retrieving metadata for object:", objPath)

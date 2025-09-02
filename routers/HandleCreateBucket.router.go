@@ -268,22 +268,33 @@ func handleGrant(name string, value string, bucketName string, grant *types.Gran
 				return nil
 			}
 
+			// Get Bucket
+			b, err := bucket.GetBucket(bucketName)
+			if err != nil {
+				log.Println("Error getting bucket:", err)
+				return fmt.Errorf("error getting bucket: %v", err)
+			}
+
 			// Update existing permissions
 			destinationGrant.Permission = reqACL
-			if err := auth.UpdateGrant(bucketName, destinationGrant); err != nil {
+			if err := bucket.UpdateGrant(bucket.UpdateGrantReq{
+				BucketID:   b.ID,
+				GranteeID:  authorization.ID,
+				Permission: reqACL,
+			}); err != nil {
 				log.Println("Error updating user permissions:", err)
 				return fmt.Errorf("error updating user permissions: %v", err)
 			}
 		} else {
 			// Get Bucket
-			bucket, err := bucket.GetBucket(bucketName)
+			b, err := bucket.GetBucket(bucketName)
 			if err != nil {
 				log.Println("Error getting bucket:", err)
 				return fmt.Errorf("error getting bucket: %v", err)
 			}
 			// Create new grant
-			err = auth.SaveNewGrant(auth.SaveNewGrantReq{
-				BucketID:   bucket.ID,
+			err = bucket.NewGrant(bucket.NewGrantReq{
+				BucketID:   b.ID,
 				GranteeID:  authorization.ID,
 				Permission: reqACL,
 			})

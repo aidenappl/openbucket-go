@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
@@ -12,7 +13,7 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("bucket name, key ID, and ACL must be provided")
 	}
 
-	permissions, err := auth.LoadBucketPermissions(bucketName)
+	permissions, err := bucket.GetBucket(bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to load permissions for bucket %s: %v", bucketName, err)
 	}
@@ -28,20 +29,12 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("keyID %s does not have access to bucket %s", keyID, bucketName)
 	}
 
-	authr, err := auth.LoadAuthorizations()
+	authr, err := auth.LoadAuthorization(keyID)
 	if err != nil {
 		return fmt.Errorf("failed to load authorizations: %v", err)
 	}
 
-	valid := false
-	for _, cred := range authr.Authorizations {
-		if cred.KeyID == keyID {
-			valid = true
-			break
-		}
-	}
-
-	if !valid {
+	if authr != nil {
 		return fmt.Errorf("keyID %s is not valid", keyID)
 	}
 
@@ -55,7 +48,11 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("no grants found for keyID %s in bucket %s", keyID, bucketName)
 	}
 
-	err = auth.UpdateBucketPermissions(bucketName, permissions)
+	err = bucket.UpdateGrant(bucket.UpdateGrantReq{
+		BucketID:   permissions.ID,
+		GranteeID:  authr.ID,
+		Permission: acl,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to save permissions for bucket %s: %v", bucketName, err)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/handler"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -105,7 +106,7 @@ func grant(cmd *cobra.Command, args []string) {
 
 func permissions(cmd *cobra.Command, args []string) {
 	bucketName := args[0]
-	permissions, err := auth.LoadBucketPermissions(bucketName)
+	permissions, err := bucket.GetBucket(bucketName)
 	if err != nil {
 		fmt.Println("Error getting bucket permissions:", err)
 		return
@@ -136,7 +137,7 @@ func listObjects(cmd *cobra.Command, args []string) error {
 		delimiter = "/"
 	}
 
-	objs, err := handler.ListObjects(bucket)
+	objs, err := objects.ListObjects(bucket)
 	if err != nil {
 		return fmt.Errorf("list objects: %w", err)
 	}

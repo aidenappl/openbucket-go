@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
-	"github.com/aidenappl/openbucket-go/types"
 	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
@@ -77,7 +77,7 @@ func handleMultipartUpload(w http.ResponseWriter, r *http.Request) {
 func handleUpload(w http.ResponseWriter, r *http.Request) {
 	// Get request variables
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	bucketName := vars["bucket"]
 	rawKey := vars["key"]
 
 	// Get hostID and requestID
@@ -93,7 +93,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate bucket and key
-	if bucket == "" || key == "" {
+	if bucketName == "" || key == "" {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucketOrKey", "Bucket and key must be provided", requestId, hostId)
 		log.Println("Bucket or key is empty")
 		return
@@ -108,10 +108,23 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Setup the filepath
-	filePath := filepath.Join("buckets", bucket, key)
+	filePath := filepath.Join("buckets", bucketName, key)
 
 	// Validate bucket exists
-	if !util.BucketExists(bucket) {
+	if !util.BucketExists(bucketName) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "the requested bucket does not exist", requestId, hostId)
+		log.Println("requested bucket does not exist")
+		return
+	}
+
+	// Get the bucket
+	bucketObj, err := bucket.GetBucket(bucketName)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving bucket information", requestId, hostId)
+		log.Println("Error retrieving bucket information:", err)
+		return
+	}
+	if bucketObj == nil {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "the requested bucket does not exist", requestId, hostId)
 		log.Println("requested bucket does not exist")
 		return
@@ -132,10 +145,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create File
-	eTag, err := objects.CreateObject(filePath, key, bucket, r.Body, nil, &types.UserObject{
-		ID:          user.KeyID,
-		DisplayName: user.Name,
-	})
+	eTag, err := objects.CreateObject(filePath, key, *bucketObj, r.Body, nil, user)
 	if err != nil {
 		http.Error(w, "Failed to create object", http.StatusInternalServerError)
 		log.Println("Error creating object:", err)

@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aidenappl/openbucket-go/auth"
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
@@ -216,9 +216,9 @@ func handleGetBucketLocation(w http.ResponseWriter, r *http.Request, bucket stri
 	responder.SendXML(w, http.StatusOK, response)
 }
 
-func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucket string) {
+func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucketName string) {
 	// Implementation for handling bucket ACL
-	p, err := auth.LoadBucketPermissions(bucket)
+	p, err := bucket.GetBucket(bucketName)
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Unable to load bucket permissions", "", "")
 		log.Println("Error loading bucket permissions:", err)
@@ -227,7 +227,7 @@ func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucket string) {
 
 	if p == nil {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "Bucket does not exist", "", "")
-		log.Println("Bucket not found:", bucket)
+		log.Println("Bucket not found:", bucketName)
 		return
 	}
 

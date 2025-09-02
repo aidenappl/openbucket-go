@@ -8,8 +8,8 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func GetObject(bucketName string, key string) (*types.ObjectMetadata, error) {
-	rows, err := db.Psql.Select(
+func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetadata, error) {
+	query := db.Psql.Select(
 		"objects.id",
 		"objects.bucket_id",
 		"objects.key",
@@ -23,8 +23,13 @@ func GetObject(bucketName string, key string) (*types.ObjectMetadata, error) {
 	).
 		From("objects").
 		Join("buckets ON objects.bucket_id = buckets.id").
-		Where(sq.Eq{"objects.key": key, "buckets.name": bucketName}).
-		Query()
+		Where(sq.Eq{"objects.key": key, "buckets.name": bucketName})
+
+	if etag != nil {
+		query = query.Where(sq.Eq{"objects.etag": *etag})
+	}
+
+	rows, err := query.Query()
 	if err != nil {
 		return nil, fmt.Errorf("error querying object metadata: %w", err)
 	}
@@ -46,5 +51,10 @@ func GetObject(bucketName string, key string) (*types.ObjectMetadata, error) {
 			return nil, fmt.Errorf("error scanning object metadata: %w", err)
 		}
 	}
+
+	if obj.ID == 0 {
+		return nil, nil
+	}
+
 	return &obj, nil
 }

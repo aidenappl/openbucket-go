@@ -19,7 +19,7 @@ import (
 
 type contextKey string
 
-var PermissionsContextKey contextKey = "permissions"
+var BucketContextKey contextKey = "bucket"
 var MetadataContextKey contextKey = "metadata"
 var SessionContextKey contextKey = "session"
 
@@ -80,11 +80,11 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if perms != nil {
-			ctx = context.WithValue(ctx, PermissionsContextKey, perms)
+			ctx = context.WithValue(ctx, BucketContextKey, perms)
 		}
 
 		// Load object metadata
-		obj, err := objects.GetObject(bucketName, key)
+		obj, err := objects.GetObject(bucketName, key, nil)
 		if err != nil {
 			deny("Error loading object metadata for "+key, err)
 			return
@@ -231,14 +231,14 @@ func validateAWSSignature(r *http.Request) bool {
 	return aws.ValidateSignature(r, authorizationHeader, dateHeader, amzContentSHA256)
 }
 
-// RetrievePermissions retrieves the permissions from the request context.
-func RetrievePermissions(r *http.Request) *types.Bucket {
-	permissions, ok := r.Context().Value(PermissionsContextKey).(*types.Bucket)
+// RetrieveBucket retrieves the bucket from the request context.
+func RetrieveBucket(r *http.Request) *types.Bucket {
+	bucket, ok := r.Context().Value(BucketContextKey).(*types.Bucket)
 	if !ok {
-		log.Println("Permissions not found in context")
+		log.Println("Bucket not found in context")
 		return nil
 	}
-	return permissions
+	return bucket
 }
 
 // RetrieveMetadata retrieves the metadata from the request context.
@@ -253,9 +253,9 @@ func RetrieveMetadata(r *http.Request) *types.ObjectMetadata {
 
 // RetrieveGrant retrieves the grant associated with the current session from the request context.
 func RetrieveGrant(r *http.Request) *types.Grant {
-	permissions := RetrievePermissions(r)
-	if permissions == nil {
-		log.Println("No permissions found in context")
+	bucket := RetrieveBucket(r)
+	if bucket == nil {
+		log.Println("No bucket found in context")
 		return nil
 	}
 
@@ -265,7 +265,7 @@ func RetrieveGrant(r *http.Request) *types.Grant {
 		return nil
 	}
 
-	for _, grant := range permissions.Grants {
+	for _, grant := range bucket.Grants {
 		if grant.Grantee.ID == session.KeyID {
 			return &grant
 		}

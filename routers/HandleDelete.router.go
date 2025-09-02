@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
@@ -48,15 +49,29 @@ func deleteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the bucket
+	b, err := bucket.GetBucket(bucketName)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
+		return
+	}
+
+	if b == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
+		return
+	}
+
 	// Check that object exists
-	if !util.ObjectExists(bucketName, objectName) {
+	if !objects.ObjectExists(b.Name, objectName) {
+		log.Println("Object does not exist")
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
 		return
 	}
 
 	// Delete the object
-	err := objects.DeleteObject(bucketName, objectName)
+	err = objects.DeleteObject(*b, objectName)
 	if err != nil {
+		log.Println("Failed to delete object:", err)
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to delete object", requestId, hostId)
 		return
 	}

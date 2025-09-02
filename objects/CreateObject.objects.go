@@ -1,18 +1,18 @@
 package objects
 
 import (
-	"encoding/xml"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func CreateObject(filePath string, key string, bucket string, bodyContent io.Reader, osContent *[]byte, user *types.UserObject) (*types.ETag, error) {
+func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent io.Reader, osContent *[]byte, user *types.Authorization) (*types.ETag, error) {
 	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
 		log.Println("Error creating directory:", err)
@@ -52,35 +52,29 @@ func CreateObject(filePath string, key string, bucket string, bodyContent io.Rea
 		return nil, err
 	}
 
-	metadata := &types.ObjectMetadata{
-		ETag:         etag,
-		Key:          key,
-		Owner:        *user,
-		Public:       false,
-		LastModified: types.IsoTime(time.Now()),
-		UploadedAt:   types.IsoTime(time.Now()),
-		VersionID:    1,
-		Size:         stat.Size(),
-	}
-
-	metadataFilePath := filePath + ".obmeta"
-	tmp := metadataFilePath + ".tmp"
-	if err := os.MkdirAll(filepath.Dir(tmp), 0o755); err != nil {
-		return nil, err
-	}
-
-	buf, err := xml.MarshalIndent(metadata, "", "  ")
+	_, err = db.Psql.Insert("objects").Columns(
+		"bucket_id",
+		"etag",
+		"key",
+		"owner_id",
+		"public",
+		"last_modified",
+		"uploaded_at",
+		"version_id",
+		"size",
+	).Values(
+		bucket.ID,
+		etag,
+		key,
+		user.ID,
+		false,
+		time.Now(),
+		time.Now(),
+		1,
+		stat.Size(),
+	).Exec()
 	if err != nil {
-		return nil, err
-	}
-
-	buf = append([]byte(xml.Header), buf...)
-	if err := os.WriteFile(tmp, buf, 0o644); err != nil {
-		return nil, err
-	}
-
-	err = os.Rename(tmp, metadataFilePath)
-	if err != nil {
+		log.Println("Error inserting object metadata:", err)
 		return nil, err
 	}
 

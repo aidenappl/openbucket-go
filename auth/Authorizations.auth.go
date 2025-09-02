@@ -70,6 +70,31 @@ func LoadAuthorizations() (*types.Authorizations, error) {
 	return &authorizations, nil
 }
 
+func LoadAuthorization(keyID string) (*types.Authorization, error) {
+	rows, err := db.Psql.
+		Select("id", "name", "key_id", "secret_key", "date_created").
+		From("authorizations").
+		Where(sq.Eq{"key_id": keyID}).
+		Query()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query authorizations: %v", err)
+	}
+	defer rows.Close()
+
+	var auth types.Authorization
+	for rows.Next() {
+		if err := rows.Scan(&auth.ID, &auth.Name, &auth.KeyID, &auth.SecretKey, &auth.DateCreated); err != nil {
+			return nil, fmt.Errorf("failed to scan authorization: %v", err)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate over authorizations: %v", err)
+	}
+
+	return &auth, nil
+}
+
 func CheckUserExists(keyID string) (*types.Authorization, error) {
 	row := db.Psql.
 		Select("id", "name", "key_id", "secret_key", "date_created").

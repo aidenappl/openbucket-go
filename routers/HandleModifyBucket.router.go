@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
-	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
@@ -42,7 +42,14 @@ func handleDeleteObjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate bucket exists
-	if !util.BucketExists(bucketName) {
+	b, err := bucket.GetBucket(bucketName)
+	if err != nil {
+		log.Println("Bucket does not exist")
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "Bucket does not exist", requestId, hostId)
+		return
+	}
+
+	if b == nil {
 		log.Println("Bucket does not exist")
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "Bucket does not exist", requestId, hostId)
 		return
@@ -67,7 +74,7 @@ func handleDeleteObjects(w http.ResponseWriter, r *http.Request) {
 
 	// process deleteRequest
 	for _, obj := range deleteRequest.Objects {
-		if err := objects.DeleteVersionedObject(bucketName, obj.Key, obj.VersionId); err != nil {
+		if err := objects.DeleteVersionedObject(*b, obj.Key, obj.VersionId); err != nil {
 			deleteResponse.Errors = append(deleteResponse.Errors, types.DeleteErrorEntry{
 				Key:     obj.Key,
 				Code:    "InternalError",

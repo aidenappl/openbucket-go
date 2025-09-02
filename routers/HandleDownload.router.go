@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
@@ -81,13 +80,6 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	// Structure request
 	filePath := filepath.Join("buckets", bucket, key)
 
-	// check if trying to access an OB file
-	if strings.HasPrefix(key, ".ob") {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "Access denied for OB file:", key)
-		return
-	}
-
 	// Open requested file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -113,9 +105,9 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// Check user permissions for file
-	permissions := middleware.RetrievePermissions(r) // Bucket permissions
-	metadata := middleware.RetrieveMetadata(r)       // File metadata
-	session := middleware.RetrieveSession(r)         // User session
+	permissions := middleware.RetrieveBucket(r) // Bucket permissions
+	metadata := middleware.RetrieveMetadata(r)  // File metadata
+	session := middleware.RetrieveSession(r)    // User session
 
 	if !metadata.Public && !types.IsBucketACLRead(permissions.ACL) && session == nil {
 		if !isValidPresignURL(r, bucket, key) {
