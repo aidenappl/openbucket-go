@@ -21,8 +21,7 @@ func HandleDeleteBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := query["tagging"]; ok {
-		log.Println("Tagging query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Tagging query parameter is not supported", "", "")
+		handleDeleteBucketTagging(w, r)
 		return
 	}
 	if _, ok := query["publicAccessBlock"]; ok {
@@ -86,10 +85,46 @@ func HandleDeleteBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	HandleBucketDeletion(w, r)
+	handleBucketDeletion(w, r)
 }
 
-func HandleBucketDeletion(w http.ResponseWriter, r *http.Request) {
+func handleDeleteBucketTagging(w http.ResponseWriter, r *http.Request) {
+	// Get request variables
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	// Get host & request from context
+	request := middleware.GetRequestID(r)
+	host := middleware.GetHostID(r)
+
+	// Validate bucket
+	if bucketName == "" {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Bucket is empty")
+		return
+	}
+
+	// get bucket from the context
+	b := middleware.RetrieveBucket(r)
+
+	// Validate bucket
+	if b == nil {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Bucket not found")
+		return
+	}
+
+	// delete all tags associated with bucket
+	err := bucket.DeleteAllBucketTags(b.ID)
+	if err != nil {
+		log.Println("Error deleting bucket tags:", err)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error deleting bucket tags", "", "")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleBucketDeletion(w http.ResponseWriter, r *http.Request) {
 	// Get the bucket from the url
 	bucketName := mux.Vars(r)["bucket"]
 

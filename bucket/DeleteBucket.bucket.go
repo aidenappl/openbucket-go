@@ -33,6 +33,12 @@ func DeleteBucket(bucketName string) error {
 		return fmt.Errorf("delete bucket permissions from db: %w", err)
 	}
 
+	// Delete Bucket Tags
+	err = DeleteAllBucketTags(bucket.ID)
+	if err != nil {
+		return fmt.Errorf("delete bucket tags from db: %w", err)
+	}
+
 	// Delete Bucket
 	_, err = db.Psql.Delete("buckets").Where(sq.Eq{"name": bucketName}).Exec()
 	if err != nil {

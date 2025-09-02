@@ -21,12 +21,56 @@ func HandleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["tagging"]; ok {
-		log.Println("Currently do not support tagging")
-		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		handleDeleteObjectTagging(w, r)
 		return
 	}
 
 	deleteObject(w, r)
+}
+
+func handleDeleteObjectTagging(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["key"]
+
+	requestId := middleware.GetRequestID(r)
+	hostId := middleware.GetHostID(r)
+
+	// validate bucket name and object name
+	if bucketName == "" || objectName == "" {
+		responder.SendXMLError(w, http.StatusNotFound, "InvalidBucketOrObject", "The bucket name or object name is invalid", requestId, hostId)
+		return
+	}
+
+	// Check that bucket exists
+	if !util.BucketExists(bucketName) {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
+		return
+	}
+
+	// Get the bucket from context
+	b := middleware.RetrieveBucket(r)
+	if b == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
+		return
+	}
+
+	// Get the metadata from context
+	metadata := middleware.RetrieveMetadata(r)
+	if metadata == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
+		return
+	}
+
+	// Run delete all
+	err := objects.DeleteAllObjectTags(b.ID, metadata.ID)
+	if err != nil {
+		log.Println("Failed to delete object tags:", err)
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to delete object tags", requestId, hostId)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func deleteObject(w http.ResponseWriter, r *http.Request) {
