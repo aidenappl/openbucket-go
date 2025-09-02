@@ -26,31 +26,56 @@ var SessionContextKey contextKey = "session"
 // HalfAuthorized is a middleware that only checks if the user is authorized to access the endpoint
 func HalfAuthorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
+		ctx := r.Context()
 		requestID, hostID := GetRequestID(r), GetHostID(r)
+
+		// deny handles general access denial with logging
+		deny := func(msg string, err error) {
+			responder.SendAccessDeniedXML(w, &requestID, &hostID)
+			if err != nil {
+				log.Printf("%s: %v", msg, err)
+			} else {
+				log.Println(msg)
+			}
+		}
 
 		// Get the access key from the request
 		keyID, err := GetAccessKeyFromRequest(r)
 		if err != nil {
-			responder.SendAccessDeniedXML(w, &requestID, &hostID)
-			log.Printf("Unauthorized: %v", err)
+			deny("Unauthorized: missing or invalid access key", err)
 			return
 		}
 
 		// Check if the user exists
 		session, err := auth.CheckUserExists(keyID)
 		if err != nil {
-			responder.SendAccessDeniedXML(w, &requestID, &hostID)
-			log.Printf("Unauthorized: %v", err)
+			deny("Unauthorized: "+err.Error(), nil)
 			return
 		}
 		if session == nil {
-			responder.SendAccessDeniedXML(w, &requestID, &hostID)
-			log.Printf("Unauthorized: user with KEY_ID %s not found", keyID)
+			deny(fmt.Sprintf("Unauthorized: user with KEY_ID %s not found", keyID), nil)
 			return
 		}
 
+		vars := mux.Vars(r)
+		bucketName := vars["bucket"]
+
+		if bucketName != "" {
+			// Get the permissions for the bucket
+			perms, err := bucket.GetBucket(bucketName)
+			if err != nil {
+				deny("Error loading permissions for bucket "+bucketName, err)
+				return
+			}
+			if perms != nil {
+				ctx = context.WithValue(ctx, BucketContextKey, perms)
+			}
+
+		}
+
 		// Store the session in the context
-		ctx := context.WithValue(r.Context(), SessionContextKey, session)
+		ctx = context.WithValue(ctx, SessionContextKey, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }

@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"encoding/xml"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,8 +30,7 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["tagging"]; ok {
-		log.Println("Tagging query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Tagging query parameter is not supported", "", "")
+		handlePutBucketTagging(w, r)
 		return
 	}
 	if _, ok := q["versioning"]; ok {
@@ -167,6 +167,49 @@ func HandleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	handleNewBucket(w, r)
+}
+
+func handlePutBucketTagging(w http.ResponseWriter, r *http.Request) {
+	// Get mux bucket variable
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	// Get the request id & host id
+	requestID := middleware.GetRequestID(r)
+	hostID := middleware.GetHostID(r)
+
+	// Validate bucket
+	if bucketName == "" {
+		responder.SendAccessDeniedXML(w, &requestID, &hostID)
+		return
+	}
+
+	// Parse the request body
+	var taggingReq types.PutBucketTaggingRequest
+	if err := xml.NewDecoder(r.Body).Decode(&taggingReq); err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or did not validate against our published schema", requestID, hostID)
+		log.Println("Failed to parse bucket tagging XML:", err)
+		return
+	}
+
+	// Get the bucket from the context
+	b := middleware.RetrieveBucket(r)
+	if b == nil {
+		responder.SendAccessDeniedXML(w, &requestID, &hostID)
+		return
+	}
+
+	// Delete all tags for the bucket
+	if err := bucket.DeleteAllBucketTags(b.ID); err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error deleting bucket tags: %v", err), requestID, hostID)
+		return
+	}
+
+	// Bulk create all tags for the bucket
+	if err := bucket.BulkCreateBucketTags(b.ID, taggingReq.TagSet); err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", fmt.Sprintf("Error creating bucket tags: %v", err), requestID, hostID)
+		return
+	}
 }
 
 func handleNewBucket(w http.ResponseWriter, r *http.Request) {
