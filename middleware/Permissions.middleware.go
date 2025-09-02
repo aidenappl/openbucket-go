@@ -125,7 +125,7 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Check if requesting object for download
-		if r.URL.Path == fmt.Sprintf("/%s/%s", bucketName, key) && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+		if obj != nil && r.URL.Path == fmt.Sprintf("/%s/%s", bucketName, key) && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
 			// Allow public access to the object if it is marked as public
 			if obj.Public {
 				next.ServeHTTP(w, r.WithContext(ctx))
