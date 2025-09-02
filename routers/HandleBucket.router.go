@@ -7,8 +7,8 @@ import (
 
 	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/env"
-	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
 	"github.com/aidenappl/openbucket-go/util"
@@ -255,7 +255,7 @@ func HandleListObjects(w http.ResponseWriter, r *http.Request) {
 		log.Println("ACL query parameter is not supported for listing objects")
 	}
 
-	objectList, err := handler.ListObjectsXML(bucket, r.URL.Query())
+	objectList, err := objects.ListObjectsXML(bucket, r.URL.Query())
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Unable to list objects", "", "")
 		log.Println("Error listing objects:", err)

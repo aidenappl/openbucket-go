@@ -1,4 +1,4 @@
-package handler
+package objects
 
 import (
 	"net/url"
@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
@@ -23,7 +22,7 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 		}
 	}
 
-	all, err := objects.ListObjects(bucket)
+	all, err := ListObjects(bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +40,11 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 			continue
 		}
 
+		// Check against isIgnored
+		if isIgnored(key) {
+			continue
+		}
+
 		if delimiter != "" {
 			// Remainder after prefix
 			trim := strings.TrimPrefix(key, normPrefix)
@@ -50,9 +54,6 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 			if trim == "" {
 				// This covers exact match with a "directory key" like "aiden/".
 				// Contribute a common prefix if appropriate
-				if delimiter == "/" && strings.HasSuffix(key, "/") {
-					// For a placeholder exactly equal to prefix, it represents the prefix itself; do not emit CP
-				}
 				continue
 			}
 
@@ -111,7 +112,7 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 	if strings.EqualFold(encodingType, "url") {
 		for i := range contents {
 			contents[i].Key = url.PathEscape(contents[i].Key)
-			// ETag should stay quoted string; don’t encode it
+			// ETag should stay quoted string; do not encode it
 		}
 		for i := range cps {
 			// S3 encodes CommonPrefixes using the same URL encoding
