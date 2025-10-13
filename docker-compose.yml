@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16
+    container_name: openbucket-db
+    environment:
+      POSTGRES_USER: openbucket
+      POSTGRES_PASSWORD: openbucket
+      POSTGRES_DB: openbucket
+    ports:
+      - "5432:5432"
+    volumes:
+      - openbucket_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  openbucket:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: openbucket
+    depends_on:
+      - db
+    environment:
+      PORT: 8080
+      DATABASE: postgres://openbucket:openbucket@db:5432/openbucket?sslmode=disable&search_path=core
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  openbucket_data:
