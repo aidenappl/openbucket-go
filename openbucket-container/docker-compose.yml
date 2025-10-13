@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: openbucket-db
+    environment:
+      POSTGRES_USER: openbucket
+      POSTGRES_PASSWORD: openbucket
+      POSTGRES_DB: openbucket
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped

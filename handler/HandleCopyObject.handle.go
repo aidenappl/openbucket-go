@@ -42,15 +42,21 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Failed to unescape Copy Source", "", "")
 		return
 	}
+
+	// remove bucket from source if present
+	if len(value) > len(bucketName) && value[0:len(bucketName)] == bucketName {
+		value = value[len(bucketName)+1:]
+	}
+
 	filePath := filepath.Join("buckets", bucketName, value)
 
 	objectMetadata, err := objects.GetObject(bucketName, value, nil)
 	if err != nil {
-		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving source metadata", "", "")
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving source metadata for "+value, "", "")
 		return
 	}
 	if objectMetadata == nil {
-		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "Source metadata does not exist", "", "")
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "Source metadata does not exist for "+value, "", "")
 		return
 	}
 

@@ -1,3 +1,10 @@
+-- init_core.sql
+
+-- Create the "core" schema
+CREATE SCHEMA IF NOT EXISTS core;
+SET search_path TO core;
+
+-- Your full schema below
 CREATE TYPE "acl_type" AS ENUM (
   'PRIVATE',
   'PUBLIC_READ',
@@ -69,17 +76,10 @@ CREATE TABLE "objects" (
 );
 
 ALTER TABLE "buckets" ADD FOREIGN KEY ("owner_id") REFERENCES "authorizations" ("id");
-
 ALTER TABLE "bucket_permissions" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-
 ALTER TABLE "bucket_permissions" ADD FOREIGN KEY ("grantee_id") REFERENCES "authorizations" ("id");
-
 ALTER TABLE "object_tags" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-
 ALTER TABLE "object_tags" ADD FOREIGN KEY ("object_id") REFERENCES "objects" ("id");
-
 ALTER TABLE "bucket_tags" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-
 ALTER TABLE "objects" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-
 ALTER TABLE "objects" ADD FOREIGN KEY ("owner_id") REFERENCES "authorizations" ("id");

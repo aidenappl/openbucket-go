@@ -2,6 +2,7 @@ package responder
 
 import (
 	"encoding/xml"
+	"log"
 	"net/http"
 )
 
@@ -17,6 +18,8 @@ func SendXMLError(w http.ResponseWriter, statusCode int, code, message, requestI
 
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(statusCode)
+
+	log.Println("Error:", code, message, "RequestId:", requestId, "HostId:", hostId)
 
 	errorResp := ErrorResponse{
 		Code:      code,
