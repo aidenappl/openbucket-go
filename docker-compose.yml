@@ -9,8 +9,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - openbucket_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - openbucket_data:/var/lib/postgresql/data
     restart: unless-stopped
 
   openbucket:
