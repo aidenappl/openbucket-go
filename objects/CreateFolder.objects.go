@@ -6,11 +6,18 @@ import (
 	"time"
 
 	"github.com/aidenappl/openbucket-go/db"
+	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
 func CreateFolder(filePath string, key string, bucket types.Bucket, user types.Authorization) error {
-	_, err := db.Psql.Insert("objects").Columns(
+	etag, err := tools.GenerateETag(filePath)
+	if err != nil {
+		log.Println("Error generating ETag:", err)
+		return err
+	}
+
+	_, err = db.Psql.Insert("objects").Columns(
 		"bucket_id",
 		"etag",
 		"key",
@@ -22,7 +29,7 @@ func CreateFolder(filePath string, key string, bucket types.Bucket, user types.A
 		"size",
 	).Values(
 		bucket.ID,
-		nil,
+		etag,
 		key,
 		user.ID,
 		false,

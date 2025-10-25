@@ -25,11 +25,20 @@ func GenerateETag(filePath string) (types.ETag, error) {
 		return "", fmt.Errorf("error writing file path to hash: %w", err)
 	}
 
-	_, err = io.Copy(hash, file)
+	// check if file is not a directory
+	fileInfo, err := file.Stat()
 	if err != nil {
-		return "", fmt.Errorf("error calculating hash: %w", err)
+		return "", fmt.Errorf("unable to get file info: %w", err)
 	}
 
+	if !fileInfo.IsDir() {
+		_, err = io.Copy(hash, file)
+		if err != nil {
+			return "", fmt.Errorf("error calculating hash: %w", err)
+		}
+	}
+
+	// fallback to hashing the file path string
 	etag := hex.EncodeToString(hash.Sum(nil))
 	return types.ETag(etag), nil
 }
