@@ -2,6 +2,7 @@ package routers
 
 import (
 	"encoding/xml"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -44,8 +45,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["acl"]; ok {
-		log.Println("Currently do not support acl")
-		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "ACL is not supported", requestId, hostId)
+		handlePutObjectACL(w, r)
 		return
 	}
 	if _, ok := q["tagging"]; ok {
@@ -131,6 +131,106 @@ func handleMultipartUpload(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Multipart upload not supported yet")
 	responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "Multipart upload not supported yet", requestId, hostId)
+}
+
+func handlePutObjectACL(w http.ResponseWriter, r *http.Request) {
+	// Get request variables
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	rawKey := vars["key"]
+
+	// Get hostID and requestID
+	hostId := middleware.GetHostID(r)
+	requestId := middleware.GetRequestID(r)
+
+	// Decode key if URL-encoded (supports spaces, etc.)
+	key, err := url.PathUnescape(rawKey)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidKey", "Failed to decode key", requestId, hostId)
+		log.Println("Error decoding key:", err)
+		return
+	}
+
+	// Validate bucket and key
+	if bucketName == "" || key == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucketOrKey", "Bucket and key must be provided", requestId, hostId)
+		log.Println("Bucket or key is empty")
+		return
+	}
+
+	// Gather the user session
+	user := middleware.RetrieveSession(r)
+	if user == nil {
+		responder.SendAccessDeniedXML(w, &requestId, &hostId)
+		log.Println("Unauthorized access attempt")
+		return
+	}
+
+	// Get ACL
+	acl := r.Header.Get("X-Amz-Acl")
+
+	// Supported ACLs
+	supportedACLs := map[string]bool{
+		"private":                   true,
+		"public-read":               true,
+		"public-read-write":         false,
+		"authenticated-read":        false,
+		"bucket-owner-read":         false,
+		"bucket-owner-full-control": false,
+	}
+
+	// Check if acl exists & is valid
+	if acl == "" {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidArgument", "ACL header is missing", requestId, hostId)
+		log.Println("ACL header is missing")
+		return
+	}
+
+	if valid, exists := supportedACLs[acl]; !exists || !valid {
+		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", fmt.Sprintf("ACL '%s' is not supported", acl), requestId, hostId)
+		log.Println("Unsupported ACL:", acl)
+		return
+	}
+
+	// Lookup object
+	metadata := middleware.RetrieveMetadata(r)
+	if metadata == nil {
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
+		log.Println("Object not found:", key)
+		return
+	}
+
+	// Check if update needed
+	if metadata.Public && acl == "public-read" {
+		w.WriteHeader(http.StatusOK)
+		log.Println("ACL is already set to public-read for object:", key)
+		return
+	}
+	if !metadata.Public && acl == "private" {
+		w.WriteHeader(http.StatusOK)
+		log.Println("ACL is already set to private for object:", key)
+		return
+	}
+
+	// Update metadata
+	if acl == "public-read" {
+		metadata.Public = true
+	} else {
+		metadata.Public = false
+	}
+
+	// Run db update
+	err = objects.UpdateObject(metadata.BucketID, metadata.Key, objects.UpdateObjectRequest{
+		Public: &metadata.Public,
+	})
+	if err != nil {
+		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to update object ACL", requestId, hostId)
+		log.Println("Error updating object ACL:", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	log.Println("Successfully updated ACL for object:", key)
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {

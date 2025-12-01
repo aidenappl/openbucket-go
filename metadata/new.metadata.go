@@ -10,7 +10,7 @@ func New(
 	bucket, key string, etag types.ETag, public bool, owner string, size int64,
 ) *types.ObjectMetadata {
 	return &types.ObjectMetadata{
-		ETag:         etag,
+		ETag:         &etag,
 		Key:          key,
 		LastModified: types.IsoTime(time.Now()),
 	}
