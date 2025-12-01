@@ -142,6 +142,7 @@ func handleObjectACL(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	key := vars["key"]
+
 	// Get host & request from context
 	request := middleware.GetRequestID(r)
 	host := middleware.GetHostID(r)
@@ -161,6 +162,14 @@ func handleObjectACL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Retrieve object metadata to check for owner info
+	metadata := middleware.RetrieveMetadata(r)
+	if metadata == nil {
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Object not found:", key)
+		return
+	}
+
 	response := types.GetObjectACLResponse{
 		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
 		Owner: bucket.Owner,
@@ -177,6 +186,18 @@ func handleObjectACL(w http.ResponseWriter, r *http.Request) {
 			Permission: grant.Permission,
 		}
 		response.AccessControlList = append(response.AccessControlList, miniGrant)
+	}
+
+	if metadata.Public {
+		publicGrant := types.MinifiedGrant{
+			Grantee: types.Grantee{
+				XmlnsXsi: "http://www.w3.org/2001/XMLSchema-instance",
+				XsiType:  "Group",
+				URI:      "http://openbucket/groups/global/AllUsers",
+			},
+			Permission: "READ",
+		}
+		response.AccessControlList = append(response.AccessControlList, publicGrant)
 	}
 
 	// Send the response
