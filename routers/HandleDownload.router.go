@@ -191,9 +191,10 @@ func handleObjectACL(w http.ResponseWriter, r *http.Request) {
 	if metadata.Public {
 		publicGrant := types.MinifiedGrant{
 			Grantee: types.Grantee{
-				XmlnsXsi: "http://www.w3.org/2001/XMLSchema-instance",
-				XsiType:  "Group",
-				URI:      "http://openbucket/groups/global/AllUsers",
+				DisplayName: "All Users",
+				XmlnsXsi:    "http://www.w3.org/2001/XMLSchema-instance",
+				XsiType:     "Group",
+				URI:         "http://openbucket/groups/global/AllUsers",
 			},
 			Permission: "READ",
 		}

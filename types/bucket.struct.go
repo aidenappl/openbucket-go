@@ -37,6 +37,7 @@ type Grantee struct {
 	XmlnsXsi    string   `xml:"xmlns:xsi,attr,omitempty"`
 	XsiType     string   `xml:"xsi:type,attr"`
 	ID          string   `xml:"ID,omitempty" db:"id" json:"id,omitempty"`
+	Email       string   `xml:"EmailAddress,omitempty" db:"email" json:"email,omitempty"`
 	DisplayName string   `xml:"DisplayName,omitempty" db:"display_name" json:"display_name,omitempty"`
 	URI         string   `xml:"URI,omitempty" db:"uri" json:"uri,omitempty"`
 }
