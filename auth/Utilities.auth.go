@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"log"
+
 	"github.com/aidenappl/openbucket-go/types"
 )
 
@@ -44,6 +46,8 @@ func UserHasPermissionToObject(session *types.Authorization, grant *types.Grant,
 			return true
 		}
 	}
+
+	log.Println("User", session.KeyID, "does not have", requiredPermissionType, "permission for object", object, "in bucket", bucket)
 
 	return false
 }
