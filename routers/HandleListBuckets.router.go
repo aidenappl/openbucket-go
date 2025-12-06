@@ -44,5 +44,8 @@ func HandleListBuckets(w http.ResponseWriter, r *http.Request) {
 	responseBuckets.Owner.ID = session.KeyID
 	responseBuckets.Owner.DisplayName = session.Name
 
+	w.Header().Set("X-Amz-Meta-owner-id", responseBuckets.Owner.ID)
+	w.Header().Set("X-Amz-Meta-owner-display-name", responseBuckets.Owner.DisplayName)
+
 	responder.SendXML(w, http.StatusOK, responseBuckets)
 }

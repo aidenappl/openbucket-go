@@ -249,6 +249,8 @@ func HandleBucketACL(w http.ResponseWriter, r *http.Request, bucketName string) 
 		AccessControlList: p.Grants,
 	}
 
+	w.Header().Set("X-Amz-Acl", string(p.ACL))
+
 	responder.SendXML(w, http.StatusOK, policy)
 }
 

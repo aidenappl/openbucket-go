@@ -188,18 +188,16 @@ func handleObjectACL(w http.ResponseWriter, r *http.Request) {
 		response.AccessControlList = append(response.AccessControlList, miniGrant)
 	}
 
-	if metadata.Public {
-		publicGrant := types.MinifiedGrant{
-			Grantee: types.Grantee{
-				DisplayName: "All Users",
-				XmlnsXsi:    "http://www.w3.org/2001/XMLSchema-instance",
-				XsiType:     "Group",
-				URI:         "http://openbucket/groups/global/AllUsers",
-			},
-			Permission: "READ",
-		}
-		response.AccessControlList = append(response.AccessControlList, publicGrant)
+	publicGrant := types.MinifiedGrant{
+		Grantee: types.Grantee{
+			DisplayName: "All Users",
+			XmlnsXsi:    "http://www.w3.org/2001/XMLSchema-instance",
+			XsiType:     "Group",
+			URI:         "http://openbucket/groups/global/AllUsers",
+		},
+		Permission: types.ConvertToBucketACL(tools.ACLString(metadata.Public)),
 	}
+	response.AccessControlList = append(response.AccessControlList, publicGrant)
 
 	// Send the response
 	responder.SendXML(w, http.StatusOK, response)
@@ -268,8 +266,9 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 
 	// Structure response headers
 	w.Header().Set("ETag", metadata.ETag.ToString())
-	w.Header().Set("X-Amz-Meta-owner-id", metadata.Owner.ID)
-	w.Header().Set("X-Amz-Meta-owner-display-name", metadata.Owner.DisplayName)
+	w.Header().Set("x-amz-meta-owner-id", metadata.Owner.ID)
+	w.Header().Set("x-amz-meta-owner-display-name", metadata.Owner.DisplayName)
+	w.Header().Set("x-amz-meta-acl", tools.ACLString(metadata.Public))
 	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 	w.Header().Set("Content-Type", tools.ContentType(filePath))
 	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))

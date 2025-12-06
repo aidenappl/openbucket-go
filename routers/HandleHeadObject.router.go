@@ -88,8 +88,15 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	// Convert to contentType
 	cType := tools.ContentType(objPath)
 
+	// Get ACL
+	acl := tools.ACLString(meta.Public)
+
 	// Set response headers
 	w.Header().Set("Content-Type", cType)
+	w.Header().Set("X-Amz-Meta-owner-id", meta.Owner.ID)
+	w.Header().Set("X-Amz-Meta-owner-display-name", meta.Owner.DisplayName)
+	w.Header().Set("X-Amz-Meta-acl", acl)
+	w.Header().Set("X-Amz-Acl", acl)
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
 	if meta.ETag != nil {

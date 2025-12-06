@@ -53,6 +53,10 @@ func HandleBucketHead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("X-Amz-Meta-Owner-Id", b.Owner.ID)
+	w.Header().Set("X-Amz-Meta-Owner-Display-Name", b.Owner.DisplayName)
+	w.Header().Set("X-Amz-Acl", string(b.ACL))
+
 	// If all checks pass, return 200 OK
 	w.WriteHeader(http.StatusOK)
 }

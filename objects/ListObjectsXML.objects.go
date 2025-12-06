@@ -52,8 +52,6 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 
 			// If key equals prefix (or is the placeholder of it), skip contents entry
 			if trim == "" {
-				// This covers exact match with a "directory key" like "aiden/".
-				// Contribute a common prefix if appropriate
 				continue
 			}
 

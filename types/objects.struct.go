@@ -86,6 +86,7 @@ type ObjectList struct {
 	Contents              []ObjectMetadata `xml:"Contents"`
 	Name                  string           `xml:"Name"`
 	Prefix                string           `xml:"Prefix"`
+	Public                bool             `xml:"Public,omitempty"`
 	Delimiter             string           `xml:"Delimiter,omitempty"`
 	MaxKeys               int              `xml:"MaxKeys"`
 	CommonPrefixes        []CommonPrefix   `xml:"CommonPrefixes,omitempty"`

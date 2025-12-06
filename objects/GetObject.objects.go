@@ -20,9 +20,13 @@ func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetada
 		"objects.size",
 		"objects.last_modified",
 		"objects.uploaded_at",
+
+		"authorizations.id",
+		"authorizations.name",
 	).
 		From("objects").
 		Join("buckets ON objects.bucket_id = buckets.id").
+		Join("authorizations ON objects.owner_id = authorizations.id").
 		Where(sq.Eq{"objects.key": key, "buckets.name": bucketName})
 
 	if etag != nil {
@@ -35,6 +39,7 @@ func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetada
 	}
 	defer rows.Close()
 	var obj types.ObjectMetadata
+	var owner types.UserObject
 	for rows.Next() {
 		if err := rows.Scan(
 			&obj.ID,
@@ -47,6 +52,9 @@ func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetada
 			&obj.Size,
 			&obj.LastModified,
 			&obj.UploadedAt,
+
+			&owner.ID,
+			&owner.DisplayName,
 		); err != nil {
 			return nil, fmt.Errorf("error scanning object metadata: %w", err)
 		}
@@ -56,6 +64,7 @@ func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetada
 		if err != nil {
 			return nil, fmt.Errorf("failed to get object tags: %w", err)
 		}
+		obj.Owner = owner
 		obj.Tags.Tag = tags
 	}
 

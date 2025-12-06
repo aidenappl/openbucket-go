@@ -13,5 +13,11 @@ func New(
 		ETag:         &etag,
 		Key:          key,
 		LastModified: types.IsoTime(time.Now()),
+		Public:       public,
+		Size:         size,
+		Owner: types.UserObject{
+			ID:          owner,
+			DisplayName: owner,
+		},
 	}
 }
