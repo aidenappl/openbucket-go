@@ -16,6 +16,8 @@ import (
 	"github.com/aidenappl/openbucket-go/env"
 )
 
+// ValidateSignature validates an AWS Signature V4 request signature.
+// Returns true if the signature is valid, false otherwise.
 func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzContentSHA256 string) bool {
 
 	parts := strings.Split(authorizationHeader, " ")
@@ -114,11 +116,16 @@ func buildCanonicalRequest(r *http.Request,
 		canon.WriteString("\n")
 	}
 
+	// Use EscapedPath to get the encoded path, then normalize it
 	uri := r.URL.EscapedPath()
 	if uri == "" {
 		uri = "/"
 	}
-	query := canonicalQuery(r.URL.Query())
+	// Decode and re-encode to normalize according to AWS rules
+	decodedPath, _ := url.PathUnescape(uri)
+	uri = canonicalURI(decodedPath)
+
+	query := canonicalQueryFromRaw(r.URL.RawQuery)
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		r.Method,
@@ -130,20 +137,100 @@ func buildCanonicalRequest(r *http.Request,
 	)
 }
 
-func canonicalQuery(v url.Values) string {
-	if len(v) == 0 {
+// canonicalURI encodes a URI path according to AWS Signature V4 rules.
+// Each path segment is encoded, but '/' delimiters are preserved.
+func canonicalURI(path string) string {
+	if path == "" {
+		return "/"
+	}
+
+	// Split path into segments and encode each one
+	segments := strings.Split(path, "/")
+	for i, segment := range segments {
+		segments[i] = awsURIEncode(segment, false)
+	}
+
+	result := strings.Join(segments, "/")
+
+	// Ensure path starts with /
+	if !strings.HasPrefix(result, "/") {
+		result = "/" + result
+	}
+
+	return result
+}
+
+// canonicalQueryFromRaw builds a canonical query string from raw query parameters.
+// It decodes, re-encodes according to AWS rules, and sorts parameters.
+func canonicalQueryFromRaw(rawQuery string) string {
+	if rawQuery == "" {
 		return ""
 	}
+
+	// Parse the raw query string manually
+	params := make(map[string][]string)
+	pairs := strings.Split(rawQuery, "&")
+
+	for _, pair := range pairs {
+		if pair == "" {
+			continue
+		}
+
+		kv := strings.SplitN(pair, "=", 2)
+		key := kv[0]
+		val := ""
+		if len(kv) == 2 {
+			val = kv[1]
+		}
+
+		// Decode the key and value to get the actual values
+		decodedKey, _ := url.QueryUnescape(key)
+		decodedVal, _ := url.QueryUnescape(val)
+
+		// Re-encode using AWS rules (encode slashes in query params)
+		encodedKey := awsURIEncode(decodedKey, true)
+		encodedVal := awsURIEncode(decodedVal, true)
+
+		params[encodedKey] = append(params[encodedKey], encodedVal)
+	}
+
+	// Sort and build canonical query string
+	var keys []string
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var parts []string
-	for k, vs := range v {
-		ek := url.QueryEscape(k)
-		sort.Strings(vs)
-		for _, val := range vs {
-			parts = append(parts, ek+"="+url.QueryEscape(val))
+	for _, k := range keys {
+		vals := params[k]
+		sort.Strings(vals)
+		for _, v := range vals {
+			parts = append(parts, k+"="+v)
 		}
 	}
-	sort.Strings(parts)
+
 	return strings.Join(parts, "&")
+}
+
+// awsURIEncode encodes a string according to AWS Signature V4 URI encoding rules.
+// Unreserved characters (A-Z, a-z, 0-9, '-', '_', '.', '~') are not encoded.
+// Set encodePath to true to encode '/' (for query parameters).
+// Set encodePath to false to preserve '/' (for URI paths).
+func awsURIEncode(s string, encodePath bool) string {
+	var result strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+			c == '_' || c == '-' || c == '~' || c == '.' {
+			result.WriteByte(c)
+		} else if c == '/' && !encodePath {
+			result.WriteByte(c)
+		} else {
+			result.WriteString(fmt.Sprintf("%%%02X", c))
+		}
+	}
+	return result.String()
 }
 
 func buildStringToSign(date time.Time, region, service, canonicalRequest string) string {
