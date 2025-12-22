@@ -34,7 +34,7 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("failed to load authorizations: %v", err)
 	}
 
-	if authr != nil {
+	if authr == nil {
 		return fmt.Errorf("keyID %s is not valid", keyID)
 	}
 

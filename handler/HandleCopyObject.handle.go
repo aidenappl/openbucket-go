@@ -101,7 +101,7 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	etag, err := objects.CreateObject(destinationFilePath, destination, *b, nil, &input, session)
+	etag, err := objects.CreateObject(destinationFilePath, destination, *b, nil, &input, session, &objectMetadata.Public)
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error creating destination object", "", "")
 		return
