@@ -310,18 +310,10 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create File
-	eTag, err := objects.CreateObject(filePath, key, *bucketObj, r.Body, nil, user)
-	if err != nil {
-		http.Error(w, "Failed to create object", http.StatusInternalServerError)
-		log.Println("Error creating object:", err)
-		return
-	}
-
 	// Get ACL
 	acl := r.Header.Get("X-Amz-Acl")
+	public := false
 
-	// Check if acl exists & is valid
 	if acl != "" {
 		// Supported ACLs
 		supportedACLs := map[string]bool{
@@ -339,45 +331,17 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Rehydrate State
-		middleware.RehydrateState(w, r)
-
-		// Lookup object
-		metadata := middleware.RetrieveMetadata(r)
-		if metadata == nil {
-			responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
-			log.Println("Object not found:", key)
-			return
-		}
-
-		// Check if update needed
-		if metadata.Public && acl == "public-read" {
-			w.WriteHeader(http.StatusOK)
-			log.Println("ACL is already set to public-read for object:", key)
-			return
-		}
-		if !metadata.Public && acl == "private" {
-			w.WriteHeader(http.StatusOK)
-			log.Println("ACL is already set to private for object:", key)
-			return
-		}
-
-		// Update metadata
 		if acl == "public-read" {
-			metadata.Public = true
-		} else {
-			metadata.Public = false
+			public = true
 		}
+	}
 
-		// Run db update
-		err = objects.UpdateObject(metadata.BucketID, metadata.Key, objects.UpdateObjectRequest{
-			Public: &metadata.Public,
-		})
-		if err != nil {
-			responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to update object ACL", requestId, hostId)
-			log.Println("Error updating object ACL:", err)
-			return
-		}
+	// Create File
+	eTag, err := objects.CreateObject(filePath, key, *bucketObj, r.Body, nil, user, &public)
+	if err != nil {
+		http.Error(w, "Failed to create object", http.StatusInternalServerError)
+		log.Println("Error creating object:", err)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
