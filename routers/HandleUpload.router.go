@@ -318,6 +318,65 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get ACL
+	acl := r.Header.Get("X-Amz-Acl")
+
+	// Check if acl exists & is valid
+	if acl != "" {
+		// Supported ACLs
+		supportedACLs := map[string]bool{
+			"private":                   true,
+			"public-read":               true,
+			"public-read-write":         false,
+			"authenticated-read":        false,
+			"bucket-owner-read":         false,
+			"bucket-owner-full-control": false,
+		}
+
+		if valid, exists := supportedACLs[acl]; !exists || !valid {
+			responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", fmt.Sprintf("ACL '%s' is not supported", acl), requestId, hostId)
+			log.Println("Unsupported ACL:", acl)
+			return
+		}
+
+		// Lookup object
+		metadata := middleware.RetrieveMetadata(r)
+		if metadata == nil {
+			responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist", requestId, hostId)
+			log.Println("Object not found:", key)
+			return
+		}
+
+		// Check if update needed
+		if metadata.Public && acl == "public-read" {
+			w.WriteHeader(http.StatusOK)
+			log.Println("ACL is already set to public-read for object:", key)
+			return
+		}
+		if !metadata.Public && acl == "private" {
+			w.WriteHeader(http.StatusOK)
+			log.Println("ACL is already set to private for object:", key)
+			return
+		}
+
+		// Update metadata
+		if acl == "public-read" {
+			metadata.Public = true
+		} else {
+			metadata.Public = false
+		}
+
+		// Run db update
+		err = objects.UpdateObject(metadata.BucketID, metadata.Key, objects.UpdateObjectRequest{
+			Public: &metadata.Public,
+		})
+		if err != nil {
+			responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Failed to update object ACL", requestId, hostId)
+			log.Println("Error updating object ACL:", err)
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 	log.Println("File uploaded successfully. ETag:", *eTag)
 }
