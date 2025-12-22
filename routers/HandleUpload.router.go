@@ -339,6 +339,9 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Rehydrate State
+		middleware.RehydrateState(w, r)
+
 		// Lookup object
 		metadata := middleware.RetrieveMetadata(r)
 		if metadata == nil {
