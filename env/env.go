@@ -10,6 +10,8 @@ var (
 	BypassPermissions = getEnv("BYPASS_PERMISSIONS", "false") == "true"
 	Region            = getEnv("REGION", "openbucket")
 	Database          = getEnvOrPanic("DATABASE")
+	PresignSecretKey  = getEnvOrPanic("PRESIGN_SECRET_KEY")
+	PresignBaseURL    = getEnv("PRESIGN_BASE_URL", "http://localhost:8080")
 )
 
 func getEnv(key string, fallback string) string {

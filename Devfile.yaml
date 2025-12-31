@@ -1,0 +1,44 @@
+commands:
+  - name: build
+    description: Build the binary
+    run: go build -o bin/app .
+  - name: run
+    description: Run the application
+    run: go run .
+  - name: test
+    description: Run tests
+    run: go test ./...
+  - name: fmt
+    description: Format code
+    run: gofmt -w -s .
+  - name: vet
+    description: Run go vet
+    run: go vet ./...
+  - name: check
+    description: Run all checks
+    run: gofmt -w -s . && go vet ./... && go test ./...
+  - name: tidy
+    description: Tidy dependencies
+    run: go mod tidy
+  # Docker commands (from Makefile)
+  - name: up
+    description: Build and start all containers
+    run: docker compose up -d --build
+  - name: down
+    description: Stop and remove containers
+    run: docker compose down
+  - name: rebuild
+    description: Rebuild only the Go app and restart it
+    run: docker compose build openbucket && docker compose up -d openbucket
+  - name: logs
+    description: Follow logs from the Go app
+    run: docker compose logs -f openbucket
+  - name: shell
+    description: Open a shell into the Go container
+    run: docker compose exec openbucket bash
+  - name: dbshell
+    description: Open psql shell in the database
+    run: docker compose exec openbucket-db psql -U openbucket -d openbucket
+  - name: obcli
+    description: Run openbucket CLI in container (use -- to pass args)
+    run: docker compose exec openbucket ./openbucket

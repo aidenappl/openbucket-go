@@ -8,20 +8,21 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/aidenappl/openbucket-go/env"
 )
 
 func GeneratePresignedURL(bucket string, key string, expirationTime int64) string {
-	var secretKey = "your-secret-key"
+	secretKey := env.PresignSecretKey
+	baseURL := env.PresignBaseURL
 
 	now := time.Now().Unix()
-
 	expiration := now + expirationTime
 
 	stringToSign := fmt.Sprintf("%s/%s/%s?expires=%d", bucket, key, secretKey, expiration)
-
 	hmacSignature := generateHMACSignature(stringToSign, secretKey)
 
-	url := fmt.Sprintf("http://localhost:8080/%s/%s?expires=%d&signature=%s", bucket, key, expiration, hmacSignature)
+	url := fmt.Sprintf("%s/%s/%s?expires=%d&signature=%s", baseURL, bucket, key, expiration, hmacSignature)
 
 	return url
 }
@@ -32,7 +33,8 @@ func generateHMACSignature(data string, secretKey string) string {
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
-func ValidatePresignedURL(secretKey string, r *http.Request) bool {
+func ValidatePresignedURL(r *http.Request) bool {
+	secretKey := env.PresignSecretKey
 
 	bucket := r.URL.Query().Get("bucket")
 	key := r.URL.Query().Get("key")
@@ -56,9 +58,5 @@ func ValidatePresignedURL(secretKey string, r *http.Request) bool {
 	stringToSign := fmt.Sprintf("%s/%s/%s?expires=%s", bucket, key, secretKey, expiration)
 	expectedSignature := generateHMACSignature(stringToSign, secretKey)
 
-	if expectedSignature != signature {
-		return false
-	}
-
-	return true
+	return expectedSignature == signature
 }

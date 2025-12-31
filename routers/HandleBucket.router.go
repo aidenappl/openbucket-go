@@ -142,8 +142,8 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["website"]; ok {
-		log.Println("RequestPayment query parameter is not supported for bucket operations")
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "RequestPayment query parameter is not supported", "", "")
+		log.Println("Website query parameter is not supported for bucket operations")
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Website query parameter is not supported", "", "")
 		return
 	}
 

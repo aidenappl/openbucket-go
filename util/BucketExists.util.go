@@ -11,7 +11,7 @@ func BucketExists(bucketName string) bool {
 	// Structure bucket
 	filePath := "buckets/" + bucketName
 
-	// lookup bucket
-	_, err := os.Open(filePath)
+	// lookup bucket using Stat to avoid file handle leak
+	_, err := os.Stat(filePath)
 	return err == nil
 }

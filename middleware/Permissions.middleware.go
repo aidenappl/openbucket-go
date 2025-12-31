@@ -80,58 +80,6 @@ func HalfAuthorized(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func RehydrateState(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucketName, key := vars["bucket"], vars["key"]
-	ctx := r.Context()
-
-	// Get the permissions for the bucket
-	perms, err := bucket.GetBucket(bucketName)
-	if err != nil {
-		log.Println("Error loading permissions for bucket " + bucketName)
-		return
-	}
-	if perms != nil {
-		ctx = context.WithValue(ctx, BucketContextKey, perms)
-	}
-
-	// Load object metadata
-	obj, err := objects.GetObject(bucketName, key, nil)
-	if err != nil {
-		log.Println("Error loading object metadata for " + key)
-		return
-	}
-	if obj != nil {
-		ctx = context.WithValue(ctx, MetadataContextKey, obj)
-	}
-
-	// Extract the access key from the request
-	keyID, err := GetAccessKeyFromRequest(r)
-	if err != nil {
-		log.Println("Unauthorized: missing or invalid access key")
-		return
-	}
-
-	// Check if the user exists
-	if bucketName == "" {
-		session, err := auth.CheckUserExists(keyID)
-		if err != nil {
-			log.Println("Unauthorized: " + err.Error())
-			return
-		}
-		ctx = context.WithValue(ctx, SessionContextKey, session)
-	}
-
-	// Authorize against the bucket ACL
-	session, err := authoriseByACL(keyID, bucketName, r)
-	if err != nil {
-		log.Println("Forbidden: " + err.Error())
-		return
-	}
-	// Store the session in the context
-	ctx = context.WithValue(ctx, SessionContextKey, session)
-}
-
 // Authorized is a middleware that checks if the user is authorized to access the requested resource.
 func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

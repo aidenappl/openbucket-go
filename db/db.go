@@ -12,10 +12,6 @@ import (
 const (
 	DefaultListLimit = 50
 	MaximumListLimit = 100
-
-	ErNoReferencedRow     = 1215
-	ErDupEntry            = 1062
-	ErDupEntryWithKeyName = 1586
 )
 
 func PingDB() error {
