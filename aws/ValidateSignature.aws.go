@@ -177,6 +177,22 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		secretHash := sha256.Sum256([]byte(*secretKey))
 		log.Printf("DEBUG: Secret key hash (for verification): %x", secretHash[:8])
 		log.Printf("DEBUG: Expected signature: %s", signature)
+		
+		// VERIFY SECRET KEY: Compute signature using the known secret key from env
+		// This verifies the database has the correct key
+		knownSecretKey := "btUptk1SuO3Tq53zGLOVnOWtrzzQKczhla58xcKFzBhDFNhtdbquWOIlpubisJCE"
+		knownSecretHash := sha256.Sum256([]byte(knownSecretKey))
+		log.Printf("DEBUG: Known secret key hash: %x", knownSecretHash[:8])
+		if fmt.Sprintf("%x", secretHash[:8]) == fmt.Sprintf("%x", knownSecretHash[:8]) {
+			log.Printf("DEBUG: ✅ Database secret key matches known key!")
+		} else {
+			log.Printf("DEBUG: ❌ DATABASE SECRET KEY DOES NOT MATCH KNOWN KEY!")
+		}
+		
+		// Compute signature with known secret key using RAW canonical request
+		knownSigningKey := getSigningKey(knownSecretKey, date, env.Region, "s3")
+		log.Printf("DEBUG: Known signing key (first 8 bytes): %x", knownSigningKey[:8])
+		log.Printf("DEBUG: DB signing key (first 8 bytes): %x", signingKey[:8])
 
 		// Test our signing algorithm with a known test case
 		// This verifies our HMAC chain is correct
