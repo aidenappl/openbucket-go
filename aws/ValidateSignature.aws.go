@@ -172,9 +172,18 @@ func canonicalURI(path string) string {
 
 // canonicalQueryFromRaw builds a canonical query string from raw query parameters.
 // It decodes, re-encodes according to AWS rules, and sorts parameters.
+// Certain SDK-internal parameters like x-id are excluded as they are not signed.
 func canonicalQueryFromRaw(rawQuery string) string {
 	if rawQuery == "" {
 		return ""
+	}
+
+	// Parameters that AWS SDK adds after signing (not included in signature)
+	unsignedParams := map[string]bool{
+		"x-id": true,
+		"X-id": true,
+		"X-Id": true,
+		"X-ID": true,
 	}
 
 	// Parse the raw query string manually
@@ -196,6 +205,11 @@ func canonicalQueryFromRaw(rawQuery string) string {
 		// Decode the key and value to get the actual values
 		decodedKey, _ := url.QueryUnescape(key)
 		decodedVal, _ := url.QueryUnescape(val)
+
+		// Skip unsigned SDK-internal parameters
+		if unsignedParams[decodedKey] {
+			continue
+		}
 
 		// Re-encode using AWS rules (encode slashes in query params)
 		encodedKey := awsURIEncode(decodedKey, true)
