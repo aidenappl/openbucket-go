@@ -150,6 +150,25 @@ func buildCanonicalRequest(r *http.Request,
 			} else {
 				v = r.Host
 			}
+		case "accept-encoding":
+			// Cloudflare/proxies modify Accept-Encoding, adding br, zstd, deflate etc.
+			// Extract just the first/primary encoding the client likely signed with.
+			val := r.Header.Get(h)
+			val = strings.TrimSpace(val)
+			// Common proxy additions to strip
+			for _, enc := range []string{", br", ",br", ", zstd", ",zstd", ", deflate", ",deflate"} {
+				val = strings.Replace(val, enc, "", -1)
+			}
+			// Handle if added encoding is first
+			for _, enc := range []string{"br, ", "br,", "zstd, ", "zstd,", "deflate, ", "deflate,"} {
+				val = strings.Replace(val, enc, "", -1)
+			}
+			// If only proxy-added encoding remains, assume original was gzip or identity
+			val = strings.TrimSpace(val)
+			if val == "br" || val == "zstd" || val == "deflate" {
+				val = "gzip" // Common default
+			}
+			v = val
 		default:
 			values := r.Header.Values(h)
 			var cleanedValues []string
