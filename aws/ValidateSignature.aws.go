@@ -108,6 +108,22 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		for name, values := range r.Header {
 			log.Printf("  %s: %v", name, values)
 		}
+		
+		// Try different accept-encoding values to find what client signed with
+		testValues := []string{"gzip", "gzip, deflate", "identity", "gzip, br", "gzip,deflate", ""}
+		for _, testVal := range testValues {
+			// Temporarily override Accept-Encoding
+			origVal := r.Header.Get("Accept-Encoding")
+			r.Header.Set("Accept-Encoding", testVal)
+			testCanonical := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, testVal)
+			testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
+			testSig := computeSignature(signingKey, testStringToSign)
+			if testSig == signature {
+				log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding value was: %q", testVal)
+			}
+			r.Header.Set("Accept-Encoding", origVal)
+		}
+		
 		return false
 	}
 
@@ -186,6 +202,77 @@ func buildCanonicalRequest(r *http.Request,
 	// AWS Canonical Request format requires \n after CanonicalHeaders
 	// Since each header in canon.String() ends with \n, we need another \n
 	// to separate headers from SignedHeaders (total: double newline)
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+		r.Method,
+		uri,
+		query,
+		canon.String(),
+		strings.Join(clean, ";"),
+		payloadHash,
+	)
+}
+
+// buildCanonicalRequestWithAcceptEncoding is like buildCanonicalRequest but uses a specific accept-encoding value for testing
+func buildCanonicalRequestWithAcceptEncoding(r *http.Request,
+	signedHeadersCSV, payloadHash, acceptEncodingOverride string) string {
+
+	if r.Header.Get("Host") == "" {
+		r.Header.Set("Host", r.Host)
+	}
+
+	hdrNames := strings.Split(signedHeadersCSV, ";")
+	var clean []string
+	for _, h := range hdrNames {
+		h = strings.TrimSpace(h)
+		if h != "" {
+			clean = append(clean, h)
+		}
+	}
+	sort.Strings(clean)
+
+	var canon strings.Builder
+	for _, h := range clean {
+		var v string
+
+		switch strings.ToLower(h) {
+		case "content-length":
+			if r.ContentLength > 0 {
+				v = strconv.FormatInt(r.ContentLength, 10)
+			} else if val := r.Header.Get(h); val != "" {
+				v = strings.TrimSpace(stripExcessSpaces(val))
+			}
+		case "host":
+			if hostVal := r.Header.Get("Host"); hostVal != "" {
+				v = strings.TrimSpace(stripExcessSpaces(hostVal))
+			} else {
+				v = r.Host
+			}
+		case "accept-encoding":
+			v = acceptEncodingOverride
+		default:
+			values := r.Header.Values(h)
+			var cleanedValues []string
+			for _, val := range values {
+				cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
+			}
+			v = strings.Join(cleanedValues, ",")
+		}
+
+		canon.WriteString(strings.ToLower(h))
+		canon.WriteString(":")
+		canon.WriteString(v)
+		canon.WriteString("\n")
+	}
+
+	uri := r.URL.EscapedPath()
+	if uri == "" {
+		uri = "/"
+	}
+	decodedPath, _ := url.PathUnescape(uri)
+	uri = canonicalURI(decodedPath)
+
+	query := canonicalQueryFromRaw(r.URL.RawQuery)
+
 	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		r.Method,
 		uri,
