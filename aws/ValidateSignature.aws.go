@@ -113,10 +113,16 @@ func buildCanonicalRequest(r *http.Request,
 
 	var canon strings.Builder
 	for _, h := range clean {
-		v := strings.Join(r.Header.Values(h), ",")
+		values := r.Header.Values(h)
+		var cleanedValues []string
+		for _, v := range values {
+			// Trim leading/trailing spaces and collapse multiple consecutive spaces
+			cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(v)))
+		}
+		v := strings.Join(cleanedValues, ",")
 		canon.WriteString(strings.ToLower(h))
 		canon.WriteString(":")
-		canon.WriteString(strings.TrimSpace(v))
+		canon.WriteString(v)
 		canon.WriteString("\n")
 	}
 
@@ -235,6 +241,49 @@ func awsURIEncode(s string, encodePath bool) string {
 		}
 	}
 	return result.String()
+}
+
+// stripExcessSpaces collapses multiple consecutive spaces into a single space
+// and trims leading/trailing spaces. This matches AWS SDK behavior for
+// canonicalizing header values.
+func stripExcessSpaces(str string) string {
+	var j, k, l, m, spaces int
+	// Trim trailing spaces
+	for j = len(str) - 1; j >= 0 && str[j] == ' '; j-- {
+	}
+
+	// Trim leading spaces
+	for k = 0; k < j && str[k] == ' '; k++ {
+	}
+	if k > j {
+		return ""
+	}
+	str = str[k : j+1]
+
+	// Strip multiple spaces
+	idx := strings.Index(str, "  ")
+	if idx < 0 {
+		return str
+	}
+
+	buf := []byte(str)
+	for k, m, l = idx, idx, len(buf); k < l; k++ {
+		if buf[k] == ' ' {
+			if spaces == 0 {
+				// First space
+				buf[m] = buf[k]
+				m++
+			}
+			spaces++
+		} else {
+			// End of multiple spaces
+			spaces = 0
+			buf[m] = buf[k]
+			m++
+		}
+	}
+
+	return string(buf[:m])
 }
 
 func buildStringToSign(date time.Time, region, service, canonicalRequest string) string {
