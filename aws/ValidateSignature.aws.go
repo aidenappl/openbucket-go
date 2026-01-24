@@ -85,6 +85,10 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 
 	if computedSignature != signature {
 		log.Println("Signature mismatch: computed signature does not match header signature")
+		log.Printf("Canonical Request:\n%s\n", canonicalRequest)
+		log.Printf("String to Sign:\n%s\n", stringToSign)
+		log.Printf("Computed: %s", computedSignature)
+		log.Printf("Received: %s", signature)
 		return false
 	}
 
