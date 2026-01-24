@@ -116,21 +116,78 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 			testCanonical := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, testVal)
 			testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
 			testSig := computeSignature(signingKey, testStringToSign)
-			log.Printf("DEBUG: Testing accept-encoding=%q -> sig=%s", testVal, testSig[:16]+"...")
 			if testSig == signature {
 				log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding value was: %q", testVal)
 			}
 		}
 		
-		// Also test completely EXCLUDING accept-encoding from the canonical request
-		log.Printf("DEBUG: Testing with accept-encoding EXCLUDED from canonical request...")
-		testCanonicalExcluded := buildCanonicalRequestExcludingHeader(r, rawSH, amzContentSHA256, "accept-encoding")
-		testStringToSignExcluded := buildStringToSign(date, env.Region, "s3", testCanonicalExcluded)
-		testSigExcluded := computeSignature(signingKey, testStringToSignExcluded)
-		log.Printf("DEBUG: Excluded accept-encoding canonical: %q", testCanonicalExcluded)
-		log.Printf("DEBUG: Excluded accept-encoding sig: %s", testSigExcluded)
-		if testSigExcluded == signature {
-			log.Printf("DEBUG: ✅ MATCH FOUND when EXCLUDING accept-encoding!")
+		// Test different HOST values - client might sign with different host
+		log.Printf("DEBUG: Testing host variations...")
+		hostVariations := []string{
+			"cdn.trailblaze.to",
+			"cdn.trailblaze.to:443",
+			"users.cdn.trailblaze.to",
+			"trailblaze.to",
+			"s3.openbucket.cdn.trailblaze.to",
+		}
+		for _, hostVal := range hostVariations {
+			testCanonical := buildCanonicalRequestWithHeaderOverride(r, rawSH, amzContentSHA256, "host", hostVal)
+			testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
+			testSig := computeSignature(signingKey, testStringToSign)
+			log.Printf("DEBUG: Testing host=%q -> sig=%s", hostVal, testSig[:16]+"...")
+			if testSig == signature {
+				log.Printf("DEBUG: ✅ MATCH FOUND! host value was: %q", hostVal)
+			}
+		}
+		
+		// COMPREHENSIVE: Test combinations of accept-encoding AND host  
+		log.Printf("DEBUG: Testing combinations...")
+		acceptEncodings := []string{"gzip", "identity", "gzip, deflate", ""}
+		for _, ae := range acceptEncodings {
+			for _, host := range hostVariations {
+				testCanonical := buildCanonicalRequestWith2Overrides(r, rawSH, amzContentSHA256, "accept-encoding", ae, "host", host)
+				testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
+				testSig := computeSignature(signingKey, testStringToSign)
+				if testSig == signature {
+					log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding=%q, host=%q", ae, host)
+				}
+			}
+		}
+		
+		// Print what we're receiving for each signed header
+		log.Printf("DEBUG: Received values for each signed header:")
+		signedHeaders := strings.Split(rawSH, ";")
+		for _, hdr := range signedHeaders {
+			receivedVal := r.Header.Get(hdr)
+			log.Printf("DEBUG:   %q = %q", hdr, receivedVal)
+		}
+		
+		// Test with EXACT received values (use actual gzip, br from cloudflare)
+		log.Printf("DEBUG: Testing with EXACT received Accept-Encoding value from request...")
+		exactAE := r.Header.Get("Accept-Encoding")
+		testCanonicalExact := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, exactAE)
+		testStringToSignExact := buildStringToSign(date, env.Region, "s3", testCanonicalExact)
+		testSigExact := computeSignature(signingKey, testStringToSignExact)
+		log.Printf("DEBUG: With exact Accept-Encoding=%q -> sig=%s", exactAE, testSigExact)
+		if testSigExact == signature {
+			log.Printf("DEBUG: ✅ MATCH with exact received Accept-Encoding!")
+		}
+		
+		// Print the full secret key length and hash for verification (don't log the actual key)
+		secretHash := sha256.Sum256([]byte(*secretKey))
+		log.Printf("DEBUG: Secret key hash (for verification): %x", secretHash[:8])
+		log.Printf("DEBUG: Expected signature: %s", signature)
+		
+		// Test our signing algorithm with a known test case
+		// This verifies our HMAC chain is correct
+		testKey := getSigningKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", 
+			time.Date(2015, 8, 30, 0, 0, 0, 0, time.UTC), "us-east-1", "iam")
+		expectedTestKey := "c4afb1cc5771d871763a393e44b703571b55cc28424d1a5e86da6ed3c154a4b9"
+		actualTestKey := fmt.Sprintf("%x", testKey)
+		if actualTestKey == expectedTestKey {
+			log.Printf("DEBUG: ✅ Signing key derivation algorithm is CORRECT")
+		} else {
+			log.Printf("DEBUG: ❌ Signing key derivation MISMATCH! expected=%s actual=%s", expectedTestKey, actualTestKey)
 		}
 		
 		return false
@@ -349,6 +406,162 @@ func buildCanonicalRequestExcludingHeader(r *http.Request,
 				cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
 			}
 			v = strings.Join(cleanedValues, ",")
+		}
+
+		canon.WriteString(strings.ToLower(h))
+		canon.WriteString(":")
+		canon.WriteString(v)
+		canon.WriteString("\n")
+	}
+
+	uri := r.URL.EscapedPath()
+	if uri == "" {
+		uri = "/"
+	}
+	decodedPath, _ := url.PathUnescape(uri)
+	uri = canonicalURI(decodedPath)
+
+	query := canonicalQueryFromRaw(r.URL.RawQuery)
+
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+		r.Method,
+		uri,
+		query,
+		canon.String(),
+		strings.Join(clean, ";"),
+		payloadHash,
+	)
+}
+
+// buildCanonicalRequestWithHeaderOverride builds canonical request with a specific header value overridden
+func buildCanonicalRequestWithHeaderOverride(r *http.Request,
+	signedHeadersCSV, payloadHash, overrideHeader, overrideValue string) string {
+
+	if r.Header.Get("Host") == "" {
+		r.Header.Set("Host", r.Host)
+	}
+
+	overrideHeader = strings.ToLower(overrideHeader)
+	hdrNames := strings.Split(signedHeadersCSV, ";")
+	var clean []string
+	for _, h := range hdrNames {
+		h = strings.TrimSpace(h)
+		if h != "" {
+			clean = append(clean, h)
+		}
+	}
+	sort.Strings(clean)
+
+	var canon strings.Builder
+	for _, h := range clean {
+		var v string
+
+		if strings.ToLower(h) == overrideHeader {
+			v = overrideValue
+		} else {
+			switch strings.ToLower(h) {
+			case "content-length":
+				if r.ContentLength > 0 {
+					v = strconv.FormatInt(r.ContentLength, 10)
+				} else if val := r.Header.Get(h); val != "" {
+					v = strings.TrimSpace(stripExcessSpaces(val))
+				}
+			case "host":
+				if hostVal := r.Header.Get("Host"); hostVal != "" {
+					v = strings.TrimSpace(stripExcessSpaces(hostVal))
+				} else {
+					v = r.Host
+				}
+			case "accept-encoding":
+				v = "identity"
+			default:
+				values := r.Header.Values(h)
+				var cleanedValues []string
+				for _, val := range values {
+					cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
+				}
+				v = strings.Join(cleanedValues, ",")
+			}
+		}
+
+		canon.WriteString(strings.ToLower(h))
+		canon.WriteString(":")
+		canon.WriteString(v)
+		canon.WriteString("\n")
+	}
+
+	uri := r.URL.EscapedPath()
+	if uri == "" {
+		uri = "/"
+	}
+	decodedPath, _ := url.PathUnescape(uri)
+	uri = canonicalURI(decodedPath)
+
+	query := canonicalQueryFromRaw(r.URL.RawQuery)
+
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+		r.Method,
+		uri,
+		query,
+		canon.String(),
+		strings.Join(clean, ";"),
+		payloadHash,
+	)
+}
+
+// buildCanonicalRequestWith2Overrides builds canonical request with two header values overridden
+func buildCanonicalRequestWith2Overrides(r *http.Request,
+	signedHeadersCSV, payloadHash, header1, value1, header2, value2 string) string {
+
+	if r.Header.Get("Host") == "" {
+		r.Header.Set("Host", r.Host)
+	}
+
+	header1 = strings.ToLower(header1)
+	header2 = strings.ToLower(header2)
+	hdrNames := strings.Split(signedHeadersCSV, ";")
+	var clean []string
+	for _, h := range hdrNames {
+		h = strings.TrimSpace(h)
+		if h != "" {
+			clean = append(clean, h)
+		}
+	}
+	sort.Strings(clean)
+
+	var canon strings.Builder
+	for _, h := range clean {
+		var v string
+		hLower := strings.ToLower(h)
+
+		if hLower == header1 {
+			v = value1
+		} else if hLower == header2 {
+			v = value2
+		} else {
+			switch hLower {
+			case "content-length":
+				if r.ContentLength > 0 {
+					v = strconv.FormatInt(r.ContentLength, 10)
+				} else if val := r.Header.Get(h); val != "" {
+					v = strings.TrimSpace(stripExcessSpaces(val))
+				}
+			case "host":
+				if hostVal := r.Header.Get("Host"); hostVal != "" {
+					v = strings.TrimSpace(stripExcessSpaces(hostVal))
+				} else {
+					v = r.Host
+				}
+			case "accept-encoding":
+				v = "identity"
+			default:
+				values := r.Header.Values(h)
+				var cleanedValues []string
+				for _, val := range values {
+					cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
+				}
+				v = strings.Join(cleanedValues, ",")
+			}
 		}
 
 		canon.WriteString(strings.ToLower(h))
