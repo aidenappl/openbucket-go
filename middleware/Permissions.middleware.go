@@ -83,6 +83,12 @@ func HalfAuthorized(next http.HandlerFunc) http.HandlerFunc {
 // Authorized is a middleware that checks if the user is authorized to access the requested resource.
 func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Return 404 for favicon and robots.txt
+		if strings.HasSuffix(r.URL.Path, "favicon.ico") || strings.HasSuffix(r.URL.Path, "robots.txt") {
+			http.NotFound(w, r)
+			return
+		}
+
 		vars := mux.Vars(r)
 		bucketName, key := vars["bucket"], vars["key"]
 		requestID, hostID := GetRequestID(r), GetHostID(r)
