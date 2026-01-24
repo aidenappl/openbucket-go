@@ -128,6 +128,7 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 			testCanonical := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, testVal)
 			testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
 			testSig := computeSignature(signingKey, testStringToSign)
+			log.Printf("DEBUG: Testing accept-encoding=%q -> sig=%s", testVal, testSig[:16]+"...")
 			if testSig == signature {
 				log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding value was: %q", testVal)
 			}
