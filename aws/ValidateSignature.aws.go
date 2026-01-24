@@ -76,6 +76,12 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		return false
 	}
 
+	// Debug: log first/last 4 chars of secret key to verify it's correct
+	sk := *secretKey
+	if len(sk) > 8 {
+		log.Printf("DEBUG: Using secret key: %s...%s (length: %d)", sk[:4], sk[len(sk)-4:], len(sk))
+	}
+
 	canonicalRequest := buildCanonicalRequest(r, rawSH, amzContentSHA256)
 
 	stringToSign := buildStringToSign(date, env.Region, "s3", canonicalRequest)
