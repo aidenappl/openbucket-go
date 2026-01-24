@@ -110,18 +110,27 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		}
 		
 		// Try different accept-encoding values to find what client signed with
-		testValues := []string{"gzip", "gzip, deflate", "identity", "gzip, br", "gzip,deflate", ""}
+		log.Printf("DEBUG: Testing accept-encoding values...")
+		testValues := []string{"gzip", "gzip, deflate", "identity", "gzip, br", "gzip,deflate", "", "gzip,br", "deflate", "br", "gzip, deflate, br", "gzip, identity", "*"}
 		for _, testVal := range testValues {
-			// Temporarily override Accept-Encoding
-			origVal := r.Header.Get("Accept-Encoding")
-			r.Header.Set("Accept-Encoding", testVal)
 			testCanonical := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, testVal)
 			testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
 			testSig := computeSignature(signingKey, testStringToSign)
+			log.Printf("DEBUG: Testing accept-encoding=%q -> sig=%s", testVal, testSig[:16]+"...")
 			if testSig == signature {
 				log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding value was: %q", testVal)
 			}
-			r.Header.Set("Accept-Encoding", origVal)
+		}
+		
+		// Also test completely EXCLUDING accept-encoding from the canonical request
+		log.Printf("DEBUG: Testing with accept-encoding EXCLUDED from canonical request...")
+		testCanonicalExcluded := buildCanonicalRequestExcludingHeader(r, rawSH, amzContentSHA256, "accept-encoding")
+		testStringToSignExcluded := buildStringToSign(date, env.Region, "s3", testCanonicalExcluded)
+		testSigExcluded := computeSignature(signingKey, testStringToSignExcluded)
+		log.Printf("DEBUG: Excluded accept-encoding canonical: %q", testCanonicalExcluded)
+		log.Printf("DEBUG: Excluded accept-encoding sig: %s", testSigExcluded)
+		if testSigExcluded == signature {
+			log.Printf("DEBUG: ✅ MATCH FOUND when EXCLUDING accept-encoding!")
 		}
 		
 		return false
@@ -131,6 +140,11 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 }
 func buildCanonicalRequest(r *http.Request,
 	signedHeadersCSV, payloadHash string) string {
+
+	log.Printf("DEBUG buildCanonicalRequest: signedHeadersCSV=%q, payloadHash=%q", signedHeadersCSV, payloadHash)
+	log.Printf("DEBUG buildCanonicalRequest: Method=%s, URL.Path=%q, URL.RawPath=%q, URL.EscapedPath=%q", 
+		r.Method, r.URL.Path, r.URL.RawPath, r.URL.EscapedPath())
+	log.Printf("DEBUG buildCanonicalRequest: URL.RawQuery=%q", r.URL.RawQuery)
 
 	if r.Header.Get("Host") == "" {
 		r.Header.Set("Host", r.Host)
@@ -145,6 +159,7 @@ func buildCanonicalRequest(r *http.Request,
 		}
 	}
 	sort.Strings(clean)
+	log.Printf("DEBUG buildCanonicalRequest: sorted headers=%v", clean)
 
 	var canon strings.Builder
 	for _, h := range clean {
@@ -159,6 +174,7 @@ func buildCanonicalRequest(r *http.Request,
 			} else if val := r.Header.Get(h); val != "" {
 				v = strings.TrimSpace(stripExcessSpaces(val))
 			}
+			log.Printf("DEBUG buildCanonicalRequest: header %q -> %q (from r.ContentLength=%d)", h, v, r.ContentLength)
 		case "host":
 			// Host may be in r.Host instead of r.Header
 			if hostVal := r.Header.Get("Host"); hostVal != "" {
@@ -166,12 +182,14 @@ func buildCanonicalRequest(r *http.Request,
 			} else {
 				v = r.Host
 			}
+			log.Printf("DEBUG buildCanonicalRequest: header %q -> %q", h, v)
 		case "accept-encoding":
 			// Cloudflare/proxies modify Accept-Encoding after signing.
 			// The aws-sdk-go-v2 typically signs with "identity" as the value,
 			// but Go's HTTP transport or proxies can change it to "gzip", "gzip, br", etc.
 			// We normalize to "identity" which is what the SDK signs with.
 			v = "identity"
+			log.Printf("DEBUG buildCanonicalRequest: header %q -> %q (HARDCODED, actual=%q)", h, v, r.Header.Get(h))
 		default:
 			values := r.Header.Values(h)
 			var cleanedValues []string
@@ -180,6 +198,7 @@ func buildCanonicalRequest(r *http.Request,
 				cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
 			}
 			v = strings.Join(cleanedValues, ",")
+			log.Printf("DEBUG buildCanonicalRequest: header %q -> %q (raw values=%v)", h, v, values)
 		}
 
 		canon.WriteString(strings.ToLower(h))
@@ -196,13 +215,15 @@ func buildCanonicalRequest(r *http.Request,
 	// Decode and re-encode to normalize according to AWS rules
 	decodedPath, _ := url.PathUnescape(uri)
 	uri = canonicalURI(decodedPath)
+	log.Printf("DEBUG buildCanonicalRequest: uri=%q (from EscapedPath=%q, decoded=%q)", uri, r.URL.EscapedPath(), decodedPath)
 
 	query := canonicalQueryFromRaw(r.URL.RawQuery)
+	log.Printf("DEBUG buildCanonicalRequest: query=%q (from RawQuery=%q)", query, r.URL.RawQuery)
 
 	// AWS Canonical Request format requires \n after CanonicalHeaders
 	// Since each header in canon.String() ends with \n, we need another \n
 	// to separate headers from SignedHeaders (total: double newline)
-	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+	result := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		r.Method,
 		uri,
 		query,
@@ -210,6 +231,8 @@ func buildCanonicalRequest(r *http.Request,
 		strings.Join(clean, ";"),
 		payloadHash,
 	)
+	log.Printf("DEBUG buildCanonicalRequest: final signedHeaders line=%q", strings.Join(clean, ";"))
+	return result
 }
 
 // buildCanonicalRequestWithAcceptEncoding is like buildCanonicalRequest but uses a specific accept-encoding value for testing
@@ -249,6 +272,76 @@ func buildCanonicalRequestWithAcceptEncoding(r *http.Request,
 			}
 		case "accept-encoding":
 			v = acceptEncodingOverride
+		default:
+			values := r.Header.Values(h)
+			var cleanedValues []string
+			for _, val := range values {
+				cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
+			}
+			v = strings.Join(cleanedValues, ",")
+		}
+
+		canon.WriteString(strings.ToLower(h))
+		canon.WriteString(":")
+		canon.WriteString(v)
+		canon.WriteString("\n")
+	}
+
+	uri := r.URL.EscapedPath()
+	if uri == "" {
+		uri = "/"
+	}
+	decodedPath, _ := url.PathUnescape(uri)
+	uri = canonicalURI(decodedPath)
+
+	query := canonicalQueryFromRaw(r.URL.RawQuery)
+
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+		r.Method,
+		uri,
+		query,
+		canon.String(),
+		strings.Join(clean, ";"),
+		payloadHash,
+	)
+}
+
+// buildCanonicalRequestExcludingHeader builds canonical request but completely excludes the specified header
+func buildCanonicalRequestExcludingHeader(r *http.Request,
+	signedHeadersCSV, payloadHash, excludeHeader string) string {
+
+	if r.Header.Get("Host") == "" {
+		r.Header.Set("Host", r.Host)
+	}
+
+	excludeHeader = strings.ToLower(excludeHeader)
+	hdrNames := strings.Split(signedHeadersCSV, ";")
+	var clean []string
+	for _, h := range hdrNames {
+		h = strings.TrimSpace(h)
+		if h != "" && strings.ToLower(h) != excludeHeader {
+			clean = append(clean, h)
+		}
+	}
+	sort.Strings(clean)
+
+	var canon strings.Builder
+	for _, h := range clean {
+		var v string
+
+		switch strings.ToLower(h) {
+		case "content-length":
+			if r.ContentLength > 0 {
+				v = strconv.FormatInt(r.ContentLength, 10)
+			} else if val := r.Header.Get(h); val != "" {
+				v = strings.TrimSpace(stripExcessSpaces(val))
+			}
+		case "host":
+			if hostVal := r.Header.Get("Host"); hostVal != "" {
+				v = strings.TrimSpace(stripExcessSpaces(hostVal))
+			} else {
+				v = r.Host
+			}
 		default:
 			values := r.Header.Values(h)
 			var cleanedValues []string
