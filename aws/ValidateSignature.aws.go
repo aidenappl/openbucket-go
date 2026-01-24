@@ -120,17 +120,11 @@ func buildCanonicalRequest(r *http.Request,
 		r.Header.Set("Host", r.Host)
 	}
 
-	// Headers that proxies commonly modify - exclude from signature validation
-	// These are unreliable for signature verification in proxied environments
-	proxyModifiedHeaders := map[string]bool{
-		"accept-encoding": true,
-	}
-
 	hdrNames := strings.Split(signedHeadersCSV, ";")
 	var clean []string
 	for _, h := range hdrNames {
 		h = strings.TrimSpace(h)
-		if h != "" && !proxyModifiedHeaders[strings.ToLower(h)] {
+		if h != "" {
 			clean = append(clean, h)
 		}
 	}
