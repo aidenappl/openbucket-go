@@ -108,7 +108,7 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		for name, values := range r.Header {
 			log.Printf("  %s: %v", name, values)
 		}
-		
+
 		// Try different accept-encoding values to find what client signed with
 		log.Printf("DEBUG: Testing accept-encoding values...")
 		testValues := []string{"gzip", "gzip, deflate", "identity", "gzip, br", "gzip,deflate", "", "gzip,br", "deflate", "br", "gzip, deflate, br", "gzip, identity", "*"}
@@ -120,7 +120,7 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 				log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding value was: %q", testVal)
 			}
 		}
-		
+
 		// Test different HOST values - client might sign with different host
 		log.Printf("DEBUG: Testing host variations...")
 		hostVariations := []string{
@@ -139,8 +139,8 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 				log.Printf("DEBUG: ✅ MATCH FOUND! host value was: %q", hostVal)
 			}
 		}
-		
-		// COMPREHENSIVE: Test combinations of accept-encoding AND host  
+
+		// COMPREHENSIVE: Test combinations of accept-encoding AND host
 		log.Printf("DEBUG: Testing combinations...")
 		acceptEncodings := []string{"gzip", "identity", "gzip, deflate", ""}
 		for _, ae := range acceptEncodings {
@@ -153,7 +153,7 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 				}
 			}
 		}
-		
+
 		// Print what we're receiving for each signed header
 		log.Printf("DEBUG: Received values for each signed header:")
 		signedHeaders := strings.Split(rawSH, ";")
@@ -161,7 +161,7 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 			receivedVal := r.Header.Get(hdr)
 			log.Printf("DEBUG:   %q = %q", hdr, receivedVal)
 		}
-		
+
 		// Test with EXACT received values (use actual gzip, br from cloudflare)
 		log.Printf("DEBUG: Testing with EXACT received Accept-Encoding value from request...")
 		exactAE := r.Header.Get("Accept-Encoding")
@@ -172,15 +172,15 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		if testSigExact == signature {
 			log.Printf("DEBUG: ✅ MATCH with exact received Accept-Encoding!")
 		}
-		
+
 		// Print the full secret key length and hash for verification (don't log the actual key)
 		secretHash := sha256.Sum256([]byte(*secretKey))
 		log.Printf("DEBUG: Secret key hash (for verification): %x", secretHash[:8])
 		log.Printf("DEBUG: Expected signature: %s", signature)
-		
+
 		// Test our signing algorithm with a known test case
 		// This verifies our HMAC chain is correct
-		testKey := getSigningKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", 
+		testKey := getSigningKey("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
 			time.Date(2015, 8, 30, 0, 0, 0, 0, time.UTC), "us-east-1", "iam")
 		expectedTestKey := "c4afb1cc5771d871763a393e44b703571b55cc28424d1a5e86da6ed3c154a4b9"
 		actualTestKey := fmt.Sprintf("%x", testKey)
@@ -189,7 +189,19 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		} else {
 			log.Printf("DEBUG: ❌ Signing key derivation MISMATCH! expected=%s actual=%s", expectedTestKey, actualTestKey)
 		}
-		
+
+		// CRITICAL TEST: Build canonical request using ALL exact header values with NO normalization
+		// This will show us exactly what the client signed
+		log.Printf("DEBUG: Building RAW canonical request with exact header values...")
+		rawCanonical := buildRawCanonicalRequest(r, rawSH, amzContentSHA256)
+		rawStringToSign := buildStringToSign(date, env.Region, "s3", rawCanonical)
+		rawSig := computeSignature(signingKey, rawStringToSign)
+		log.Printf("DEBUG: RAW canonical request: %q", rawCanonical)
+		log.Printf("DEBUG: RAW signature: %s", rawSig)
+		if rawSig == signature {
+			log.Printf("DEBUG: ✅ MATCH with RAW canonical request!")
+		}
+
 		return false
 	}
 
@@ -199,7 +211,7 @@ func buildCanonicalRequest(r *http.Request,
 	signedHeadersCSV, payloadHash string) string {
 
 	log.Printf("DEBUG buildCanonicalRequest: signedHeadersCSV=%q, payloadHash=%q", signedHeadersCSV, payloadHash)
-	log.Printf("DEBUG buildCanonicalRequest: Method=%s, URL.Path=%q, URL.RawPath=%q, URL.EscapedPath=%q", 
+	log.Printf("DEBUG buildCanonicalRequest: Method=%s, URL.Path=%q, URL.RawPath=%q, URL.EscapedPath=%q",
 		r.Method, r.URL.Path, r.URL.RawPath, r.URL.EscapedPath())
 	log.Printf("DEBUG buildCanonicalRequest: URL.RawQuery=%q", r.URL.RawQuery)
 
@@ -577,6 +589,57 @@ func buildCanonicalRequestWith2Overrides(r *http.Request,
 	decodedPath, _ := url.PathUnescape(uri)
 	uri = canonicalURI(decodedPath)
 
+	query := canonicalQueryFromRaw(r.URL.RawQuery)
+
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+		r.Method,
+		uri,
+		query,
+		canon.String(),
+		strings.Join(clean, ";"),
+		payloadHash,
+	)
+}
+
+// buildRawCanonicalRequest builds canonical request using EXACT received header values with NO normalization
+// This is used to debug what the client actually signed
+func buildRawCanonicalRequest(r *http.Request, signedHeadersCSV, payloadHash string) string {
+	hdrNames := strings.Split(signedHeadersCSV, ";")
+	var clean []string
+	for _, h := range hdrNames {
+		h = strings.TrimSpace(h)
+		if h != "" {
+			clean = append(clean, h)
+		}
+	}
+	sort.Strings(clean)
+
+	var canon strings.Builder
+	for _, h := range clean {
+		// Use exact value from header with NO normalization
+		v := r.Header.Get(h)
+
+		// Special cases where Go doesn't store in r.Header
+		if strings.ToLower(h) == "host" && v == "" {
+			v = r.Host
+		}
+		if strings.ToLower(h) == "content-length" && v == "" && r.ContentLength > 0 {
+			v = strconv.FormatInt(r.ContentLength, 10)
+		}
+
+		canon.WriteString(strings.ToLower(h))
+		canon.WriteString(":")
+		canon.WriteString(v)
+		canon.WriteString("\n")
+	}
+
+	// Use raw path with no normalization
+	uri := r.URL.Path
+	if uri == "" {
+		uri = "/"
+	}
+
+	// Use raw query with no modifications (but still exclude x-id)
 	query := canonicalQueryFromRaw(r.URL.RawQuery)
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
