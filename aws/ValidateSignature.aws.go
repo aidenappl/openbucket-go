@@ -177,18 +177,14 @@ func buildCanonicalRequest(r *http.Request,
 
 	query := canonicalQueryFromRaw(r.URL.RawQuery)
 
-	// AWS Canonical Request format:
-	// HTTPMethod\n
-	// CanonicalURI\n
-	// CanonicalQueryString\n
-	// CanonicalHeaders\n  <- canon.String() already ends with \n
-	// SignedHeaders\n
-	// HashedPayload
-	return fmt.Sprintf("%s\n%s\n%s\n%s%s\n%s",
+	// AWS Canonical Request format requires \n after CanonicalHeaders
+	// Since each header in canon.String() ends with \n, we need another \n
+	// to separate headers from SignedHeaders (total: double newline)
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		r.Method,
 		uri,
 		query,
-		canon.String(), // already ends with \n, so no \n before next %s
+		canon.String(),
 		strings.Join(clean, ";"),
 		payloadHash,
 	)
