@@ -96,6 +96,11 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		log.Printf("String to Sign:\n%s\n", stringToSign)
 		log.Printf("Computed: %s", computedSignature)
 		log.Printf("Received: %s", signature)
+		// Debug: dump canonical request as Go string literal to see exact bytes
+		log.Printf("DEBUG: Canonical request bytes: %q", canonicalRequest)
+		// Debug: show signing key derivation inputs
+		log.Printf("DEBUG: Signing key inputs - date: %s, region: %s, service: s3", date.Format("20060102"), env.Region)
+		log.Printf("DEBUG: Signing key (first 8 bytes hex): %x", signingKey[:8])
 		// Debug: dump all relevant request details
 		log.Printf("DEBUG: Signed headers from auth: %s", rawSH)
 		log.Printf("DEBUG: Content-Length header: %s, r.ContentLength: %d", r.Header.Get("Content-Length"), r.ContentLength)
