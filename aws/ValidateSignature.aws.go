@@ -90,6 +90,18 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 
 	computedSignature := computeSignature(signingKey, stringToSign)
 
+	// ALSO try computing signature without accept-encoding in case middleware removed it
+	// but the SignedHeaders still includes it (defensive check)
+	if strings.Contains(rawSH, "accept-encoding") {
+		canonicalWithoutAE := buildCanonicalRequestExcludingHeader(r, rawSH, amzContentSHA256, "accept-encoding")
+		stringToSignWithoutAE := buildStringToSign(date, env.Region, "s3", canonicalWithoutAE)
+		sigWithoutAE := computeSignature(signingKey, stringToSignWithoutAE)
+		if sigWithoutAE == signature {
+			log.Printf("DEBUG: ✅ Signature matches when EXCLUDING accept-encoding from canonical request!")
+			return true
+		}
+	}
+
 	if computedSignature != signature {
 		log.Println("Signature mismatch: computed signature does not match header signature")
 		log.Printf("Canonical Request:\n%s\n", canonicalRequest)
@@ -168,6 +180,43 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		testCanonicalExact := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, exactAE)
 		testStringToSignExact := buildStringToSign(date, env.Region, "s3", testCanonicalExact)
 		testSigExact := computeSignature(signingKey, testStringToSignExact)
+
+		// CRITICAL TEST: What if the client middleware worked and accept-encoding was NOT signed?
+		// Build canonical request EXCLUDING accept-encoding entirely
+		log.Printf("DEBUG: Testing WITHOUT accept-encoding in canonical request (as if middleware removed it)...")
+		canonicalWithoutAE := buildCanonicalRequestExcludingHeader(r, rawSH, amzContentSHA256, "accept-encoding")
+		stringToSignWithoutAE := buildStringToSign(date, env.Region, "s3", canonicalWithoutAE)
+		sigWithoutAE := computeSignature(signingKey, stringToSignWithoutAE)
+		log.Printf("DEBUG: Canonical WITHOUT accept-encoding: %q", canonicalWithoutAE)
+		log.Printf("DEBUG: Signature WITHOUT accept-encoding: %s", sigWithoutAE)
+		if sigWithoutAE == signature {
+			log.Printf("DEBUG: ✅ MATCH! Client signed WITHOUT accept-encoding!")
+		}
+
+		// Also test with more edge case values for accept-encoding
+		moreTestValues := []string{
+			"gzip;q=1.0, deflate;q=0.5",
+			"gzip;q=1",
+			"*;q=0",
+			"gzip, deflate;q=0.5",
+			"gzip, identity;q=0.5",
+			"gzip,identity",
+			"gzip, deflate, br",
+			"br",
+			"br, gzip",
+			"br,gzip",
+			"zstd",
+			"zstd, gzip, br",
+		}
+		log.Printf("DEBUG: Testing additional accept-encoding edge cases...")
+		for _, testVal := range moreTestValues {
+			testCanonical := buildCanonicalRequestWithAcceptEncoding(r, rawSH, amzContentSHA256, testVal)
+			testStringToSign := buildStringToSign(date, env.Region, "s3", testCanonical)
+			testSig := computeSignature(signingKey, testStringToSign)
+			if testSig == signature {
+				log.Printf("DEBUG: ✅ MATCH FOUND! accept-encoding value was: %q", testVal)
+			}
+		}
 		log.Printf("DEBUG: With exact Accept-Encoding=%q -> sig=%s", exactAE, testSigExact)
 		if testSigExact == signature {
 			log.Printf("DEBUG: ✅ MATCH with exact received Accept-Encoding!")
