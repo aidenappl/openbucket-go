@@ -245,8 +245,11 @@ func awsURIEncode(s string, encodePath bool) string {
 
 // stripExcessSpaces collapses multiple consecutive spaces into a single space
 // and trims leading/trailing spaces. This matches AWS SDK behavior for
-// canonicalizing header values.
+// canonicalizing header values. Tabs are converted to spaces first.
 func stripExcessSpaces(str string) string {
+	// First, convert all tabs to spaces (AWS SDK behavior)
+	str = strings.ReplaceAll(str, "\t", " ")
+
 	var j, k, l, m, spaces int
 	// Trim trailing spaces
 	for j = len(str) - 1; j >= 0 && str[j] == ' '; j-- {
