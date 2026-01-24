@@ -99,6 +99,11 @@ func buildCanonicalRequest(r *http.Request, signedHeaders, payloadHash string) s
 			} else if v := r.Header.Get("Content-Length"); v != "" {
 				value = v
 			}
+		case "accept-encoding":
+			// AWS SDK signs with "identity" before the request goes through proxies.
+			// Cloudflare/proxies modify Accept-Encoding to "gzip, br" etc.
+			// We must use "identity" to match what the client originally signed.
+			value = "identity"
 		default:
 			// Get all values for this header and join with comma
 			values := r.Header.Values(h)

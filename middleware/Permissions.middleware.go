@@ -141,16 +141,6 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 
 		// Validate AWS signature if bypass is not enabled
 		if !validateAWSSignature(r) {
-			log.Printf("DEBUG: Signature validation failed for %s %s", r.Method, r.URL.Path)
-			log.Printf("DEBUG: Authorization header: %s", r.Header.Get("Authorization"))
-			log.Printf("DEBUG: X-Amz-Date: %s", r.Header.Get("X-Amz-Date"))
-			log.Printf("DEBUG: X-Amz-Content-Sha256: %s", r.Header.Get("X-Amz-Content-Sha256"))
-			log.Printf("DEBUG: Host header: %s", r.Header.Get("Host"))
-			log.Printf("DEBUG: r.Host: %s", r.Host)
-			log.Printf("DEBUG: X-Forwarded-Host: %s", r.Header.Get("X-Forwarded-Host"))
-			log.Printf("DEBUG: X-Original-Host: %s", r.Header.Get("X-Original-Host"))
-			log.Printf("DEBUG: Full URL: %s", r.URL.String())
-			log.Printf("DEBUG: RawQuery: %s", r.URL.RawQuery)
 			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)
 			return
 		}
