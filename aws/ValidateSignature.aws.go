@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -89,6 +90,13 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		log.Printf("String to Sign:\n%s\n", stringToSign)
 		log.Printf("Computed: %s", computedSignature)
 		log.Printf("Received: %s", signature)
+		// Debug: dump all relevant request details
+		log.Printf("DEBUG: Signed headers from auth: %s", rawSH)
+		log.Printf("DEBUG: Content-Length header: %s, r.ContentLength: %d", r.Header.Get("Content-Length"), r.ContentLength)
+		log.Printf("DEBUG: All request headers:")
+		for name, values := range r.Header {
+			log.Printf("  %s: %v", name, values)
+		}
 		return false
 	}
 
@@ -113,13 +121,34 @@ func buildCanonicalRequest(r *http.Request,
 
 	var canon strings.Builder
 	for _, h := range clean {
-		values := r.Header.Values(h)
-		var cleanedValues []string
-		for _, v := range values {
-			// Trim leading/trailing spaces and collapse multiple consecutive spaces
-			cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(v)))
+		var v string
+
+		// Handle special headers that Go's HTTP library parses specially
+		switch strings.ToLower(h) {
+		case "content-length":
+			// Go parses Content-Length into r.ContentLength, not r.Header
+			if r.ContentLength > 0 {
+				v = strconv.FormatInt(r.ContentLength, 10)
+			} else if val := r.Header.Get(h); val != "" {
+				v = strings.TrimSpace(stripExcessSpaces(val))
+			}
+		case "host":
+			// Host may be in r.Host instead of r.Header
+			if hostVal := r.Header.Get("Host"); hostVal != "" {
+				v = strings.TrimSpace(stripExcessSpaces(hostVal))
+			} else {
+				v = r.Host
+			}
+		default:
+			values := r.Header.Values(h)
+			var cleanedValues []string
+			for _, val := range values {
+				// Trim leading/trailing spaces and collapse multiple consecutive spaces
+				cleanedValues = append(cleanedValues, strings.TrimSpace(stripExcessSpaces(val)))
+			}
+			v = strings.Join(cleanedValues, ",")
 		}
-		v := strings.Join(cleanedValues, ",")
+
 		canon.WriteString(strings.ToLower(h))
 		canon.WriteString(":")
 		canon.WriteString(v)
