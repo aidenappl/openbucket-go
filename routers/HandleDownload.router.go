@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
+	"github.com/aidenappl/openbucket-go/aws"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
@@ -253,15 +255,13 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	session := middleware.RetrieveSession(r)    // User session
 
 	if !metadata.Public && !types.IsBucketACLRead(permissions.ACL) && session == nil {
+		// Check if request has a valid presigned URL
 		if !isValidPresignURL(r, bucket, key) {
 			responder.SendAccessDeniedXML(w, &request, &host)
-			log.Println(request, host, "Invalid or expired presigned URL:", key)
+			log.Println(request, host, "Access denied for bucket:", bucket, "key:", key)
 			return
 		}
-
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "Access denied for bucket:", bucket, "key:", key)
-		return
+		// Presigned URL is valid - continue to serve the file
 	}
 
 	// Structure response headers
@@ -289,11 +289,53 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 func isValidPresignURL(r *http.Request, bucket, key string) bool {
 	request := middleware.GetRequestID(r)
 	host := middleware.GetHostID(r)
-	amzDate := r.URL.Query().Get("X-Amz-Date")
-	signature := r.URL.Query().Get("X-Amz-Signature")
-	if amzDate == "" || signature == "" {
+
+	// Check for AWS presigned URL parameters
+	q := r.URL.Query()
+	amzDate := q.Get("X-Amz-Date")
+	signature := q.Get("X-Amz-Signature")
+	credential := q.Get("X-Amz-Credential")
+	expires := q.Get("X-Amz-Expires")
+	signedHeaders := q.Get("X-Amz-SignedHeaders")
+	algorithm := q.Get("X-Amz-Algorithm")
+
+	// Validate all required parameters exist
+	if amzDate == "" || signature == "" || credential == "" || expires == "" || signedHeaders == "" {
 		log.Println(request, host, "Missing required parameters for presigned URL validation")
 		return false
 	}
+
+	// Validate algorithm
+	if algorithm != "" && algorithm != "AWS4-HMAC-SHA256" {
+		log.Println(request, host, "Invalid algorithm for presigned URL:", algorithm)
+		return false
+	}
+
+	// Parse and validate expiration
+	requestTime, err := time.Parse("20060102T150405Z", amzDate)
+	if err != nil {
+		log.Println(request, host, "Invalid X-Amz-Date format:", amzDate)
+		return false
+	}
+
+	expiresSeconds, err := strconv.ParseInt(expires, 10, 64)
+	if err != nil {
+		log.Println(request, host, "Invalid X-Amz-Expires value:", expires)
+		return false
+	}
+
+	// Check if URL has expired
+	expirationTime := requestTime.Add(time.Duration(expiresSeconds) * time.Second)
+	if time.Now().After(expirationTime) {
+		log.Println(request, host, "Presigned URL has expired")
+		return false
+	}
+
+	// Validate the signature using AWS package
+	if !aws.ValidatePresignedURLSignature(r, credential, signedHeaders, signature, amzDate) {
+		log.Println(request, host, "Invalid presigned URL signature")
+		return false
+	}
+
 	return true
 }

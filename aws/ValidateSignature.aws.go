@@ -349,3 +349,144 @@ func loadSecretKeyByAccessKey(accessKey string) (*string, error) {
 
 	return nil, nil
 }
+
+// ValidatePresignedURLSignature validates an AWS Signature V4 presigned URL.
+// Presigned URLs use query string authentication instead of the Authorization header.
+func ValidatePresignedURLSignature(r *http.Request, credential, signedHeaders, signature, amzDate string) bool {
+	// Parse credential: ACCESS_KEY/DATE/REGION/SERVICE/aws4_request
+	credParts := strings.Split(credential, "/")
+	if len(credParts) < 5 {
+		return false
+	}
+	accessKey := credParts[0]
+	region := credParts[2]
+	service := credParts[3]
+
+	// Parse date
+	date, err := time.Parse("20060102T150405Z", amzDate)
+	if err != nil {
+		return false
+	}
+
+	// Load secret key
+	secretKey, err := loadSecretKeyByAccessKey(accessKey)
+	if err != nil || secretKey == nil {
+		return false
+	}
+
+	// Build canonical request for presigned URL
+	// For presigned URLs, the payload hash is always UNSIGNED-PAYLOAD
+	canonicalRequest := buildPresignedCanonicalRequest(r, signedHeaders)
+	stringToSign := buildStringToSign(date, region, service, canonicalRequest)
+	signingKey := deriveSigningKey(*secretKey, date, region, service)
+	computedSignature := computeSignature(signingKey, stringToSign)
+
+	return computedSignature == signature
+}
+
+// buildPresignedCanonicalRequest builds the canonical request for presigned URL validation.
+// The query string excludes X-Amz-Signature and the payload is always UNSIGNED-PAYLOAD.
+func buildPresignedCanonicalRequest(r *http.Request, signedHeaders string) string {
+	// Parse and sort signed headers
+	headers := strings.Split(signedHeaders, ";")
+	sort.Strings(headers)
+
+	// Build canonical headers
+	var canonicalHeaders strings.Builder
+	for _, h := range headers {
+		h = strings.ToLower(h)
+		var value string
+
+		switch h {
+		case "host":
+			value = r.Host
+			if v := r.Header.Get("Host"); v != "" {
+				value = v
+			}
+		default:
+			values := r.Header.Values(h)
+			var trimmed []string
+			for _, v := range values {
+				trimmed = append(trimmed, trimHeaderValue(v))
+			}
+			value = strings.Join(trimmed, ",")
+		}
+
+		canonicalHeaders.WriteString(h)
+		canonicalHeaders.WriteString(":")
+		canonicalHeaders.WriteString(trimHeaderValue(value))
+		canonicalHeaders.WriteString("\n")
+	}
+
+	// Build canonical URI
+	uri := canonicalURI(r.URL.Path)
+
+	// Build canonical query string (excluding X-Amz-Signature)
+	query := canonicalQueryStringExcludingSignature(r.URL.RawQuery)
+
+	// For presigned URLs, the payload hash is always UNSIGNED-PAYLOAD
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
+		r.Method,
+		uri,
+		query,
+		canonicalHeaders.String(),
+		strings.Join(headers, ";"),
+		"UNSIGNED-PAYLOAD",
+	)
+}
+
+// canonicalQueryStringExcludingSignature builds the canonical query string excluding X-Amz-Signature.
+func canonicalQueryStringExcludingSignature(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+
+	params := make(map[string][]string)
+	pairs := strings.Split(rawQuery, "&")
+
+	for _, pair := range pairs {
+		if pair == "" {
+			continue
+		}
+
+		idx := strings.Index(pair, "=")
+		var key, value string
+		if idx == -1 {
+			key = pair
+			value = ""
+		} else {
+			key = pair[:idx]
+			value = pair[idx+1:]
+		}
+
+		decodedKey, _ := url.QueryUnescape(key)
+
+		// Skip X-Amz-Signature as it's not part of the string to sign
+		if decodedKey == "X-Amz-Signature" {
+			continue
+		}
+
+		decodedValue, _ := url.QueryUnescape(value)
+		encodedKey := uriEncode(decodedKey, true)
+		encodedValue := uriEncode(decodedValue, true)
+
+		params[encodedKey] = append(params[encodedKey], encodedValue)
+	}
+
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var parts []string
+	for _, k := range keys {
+		values := params[k]
+		sort.Strings(values)
+		for _, v := range values {
+			parts = append(parts, k+"="+v)
+		}
+	}
+
+	return strings.Join(parts, "&")
+}

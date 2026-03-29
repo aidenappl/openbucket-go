@@ -235,6 +235,16 @@ func GetAccessKeyFromRequest(r *http.Request) (string, error) {
 		return authorizationHeader, nil
 	}
 
+	// Check for presigned URL credential first
+	credential := r.URL.Query().Get("X-Amz-Credential")
+	if credential != "" {
+		// Credential format: ACCESS_KEY/DATE/REGION/SERVICE/aws4_request
+		accessKey := strings.Split(credential, "/")[0]
+		if accessKey != "" {
+			return accessKey, nil
+		}
+	}
+
 	authorizationHeader := r.Header.Get("Authorization")
 	if authorizationHeader == "" {
 		return "", fmt.Errorf("authorization header is missing")
@@ -263,7 +273,21 @@ func GetAccessKeyFromRequest(r *http.Request) (string, error) {
 
 // validateAWSSignature checks if the request has a valid AWS signature.
 func validateAWSSignature(r *http.Request) bool {
+	// Check for presigned URL (query string authentication)
+	q := r.URL.Query()
+	if q.Get("X-Amz-Signature") != "" {
+		credential := q.Get("X-Amz-Credential")
+		signedHeaders := q.Get("X-Amz-SignedHeaders")
+		signature := q.Get("X-Amz-Signature")
+		amzDate := q.Get("X-Amz-Date")
+		expires := q.Get("X-Amz-Expires")
 
+		if credential != "" && signedHeaders != "" && amzDate != "" && expires != "" {
+			return aws.ValidatePresignedURLSignature(r, credential, signedHeaders, signature, amzDate)
+		}
+	}
+
+	// Check for standard Authorization header signing
 	authorizationHeader := r.Header.Get("Authorization")
 	dateHeader := r.Header.Get("X-Amz-Date")
 	amzContentSHA256 := r.Header.Get("X-Amz-Content-SHA256")
