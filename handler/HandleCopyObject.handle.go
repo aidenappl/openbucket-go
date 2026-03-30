@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/aidenappl/openbucket-go/auth"
-	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
@@ -84,24 +83,21 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if all checks pass, proceed with the copy
-	input, err := os.ReadFile(filePath)
+	srcFile, err := os.Open(filePath)
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error reading source file", "", "")
 		return
 	}
+	defer srcFile.Close()
 
-	// Get the bucket
-	b, err := bucket.GetBucket(bucketName)
-	if err != nil {
-		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving bucket information", "", "")
-		return
-	}
+	// Get the bucket from context (loaded by middleware)
+	b := middleware.RetrieveBucket(r)
 	if b == nil {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "the requested bucket does not exist", "", "")
 		return
 	}
 
-	etag, err := objects.CreateObject(destinationFilePath, destination, *b, nil, &input, session, &objectMetadata.Public)
+	etag, err := objects.CreateObject(destinationFilePath, destination, *b, srcFile, nil, session, &objectMetadata.Public)
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error creating destination object", "", "")
 		return

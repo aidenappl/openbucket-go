@@ -8,7 +8,25 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetadata, error) {
+// GetObjectOptions configures what data to load with GetObject
+type GetObjectOptions struct {
+	IncludeTags bool
+}
+
+// DefaultGetObjectOptions returns the default options (backward compatible - includes tags)
+func DefaultGetObjectOptions() *GetObjectOptions {
+	return &GetObjectOptions{
+		IncludeTags: true,
+	}
+}
+
+func GetObject(bucketName string, key string, etag *string, opts ...*GetObjectOptions) (*types.ObjectMetadata, error) {
+	// Use default options if none provided (backward compatible)
+	opt := DefaultGetObjectOptions()
+	if len(opts) > 0 && opts[0] != nil {
+		opt = opts[0]
+	}
+
 	query := db.Psql.Select(
 		"objects.id",
 		"objects.bucket_id",
@@ -59,13 +77,15 @@ func GetObject(bucketName string, key string, etag *string) (*types.ObjectMetada
 			return nil, fmt.Errorf("error scanning object metadata: %w", err)
 		}
 
-		// Get object tags
-		tags, err := GetObjectTags(obj.BucketID, obj.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get object tags: %w", err)
+		// Get object tags only if requested
+		if opt.IncludeTags {
+			tags, err := GetObjectTags(obj.BucketID, obj.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get object tags: %w", err)
+			}
+			obj.Tags.Tag = tags
 		}
 		obj.Owner = owner
-		obj.Tags.Tag = tags
 	}
 
 	if obj.ID == 0 {

@@ -228,26 +228,28 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	// Open requested file
 	file, err := os.Open(filePath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.", request, host)
+			return
+		}
+		responder.SendAccessDeniedXML(w, &request, &host)
+		log.Println(request, host, "Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	// Get file information from opened handle (avoids extra syscall)
+	fileInfo, err := file.Stat()
+	if err != nil {
 		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "Error getting file info:", err)
 		return
 	}
-
-	// Get file information
-	fileInfo, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.", request, host)
-		return
-	} else if err != nil {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "Error opening file:", err)
-		return
-	} else if fileInfo.IsDir() {
+	if fileInfo.IsDir() {
 		responder.SendAccessDeniedXML(w, &request, &host)
 		log.Println(request, host, "File is a directory, not a valid object:", filePath)
 		return
 	}
-	defer file.Close()
 
 	// Check user permissions for file
 	permissions := middleware.RetrieveBucket(r) // Bucket permissions

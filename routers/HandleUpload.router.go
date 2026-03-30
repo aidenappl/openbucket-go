@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
@@ -276,13 +275,8 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the bucket
-	bucketObj, err := bucket.GetBucket(bucketName)
-	if err != nil {
-		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving bucket information", requestId, hostId)
-		log.Println("Error retrieving bucket information:", err)
-		return
-	}
+	// Get the bucket from context (loaded by middleware)
+	bucketObj := middleware.RetrieveBucket(r)
 	if bucketObj == nil {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "the requested bucket does not exist", requestId, hostId)
 		log.Println("requested bucket does not exist")

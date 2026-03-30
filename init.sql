@@ -1,85 +1,97 @@
--- init_core.sql
-
--- Create the "core" schema
-CREATE SCHEMA IF NOT EXISTS core;
-SET search_path TO core;
-
--- Your full schema below
-CREATE TYPE "acl_type" AS ENUM (
-  'PRIVATE',
-  'PUBLIC_READ',
-  'PUBLIC_READ_WRITE',
-  'AUTHENTICATED_READ',
-  'BUCKET_OWNER_READ',
-  'BUCKET_OWNER_FULL_CONTROL',
-  'LOG_DELIVERY_WRITE'
+create table core.authorizations
+(
+    id           serial
+        primary key,
+    name         text         not null,
+    key_id       varchar(64)  not null
+        unique,
+    secret_key   varchar(128) not null,
+    date_created timestamp default now()
 );
 
-CREATE TYPE "permission_type" AS ENUM (
-  'FULL_CONTROL',
-  'READ',
-  'WRITE',
-  'READ_ACP',
-  'WRITE_ACP'
+alter table core.authorizations
+    owner to openbucket;
+
+create table core.buckets
+(
+    id            serial
+        primary key,
+    name          text not null
+        unique,
+    creation_date timestamp     default now(),
+    acl           core.acl_type default 'PRIVATE'::core.acl_type,
+    owner_id      integer
+        references core.authorizations
 );
 
-CREATE TABLE "authorizations" (
-  "id" serial PRIMARY KEY,
-  "name" text NOT NULL,
-  "key_id" varchar(64) UNIQUE NOT NULL,
-  "secret_key" varchar(128) NOT NULL,
-  "date_created" timestamp DEFAULT (now())
+alter table core.buckets
+    owner to openbucket;
+
+create table core.bucket_permissions
+(
+    id         serial
+        primary key,
+    bucket_id  integer
+        references core.buckets,
+    grantee_id integer
+        references core.authorizations,
+    permission core.permission_type not null,
+    date_added timestamp default now()
 );
 
-CREATE TABLE "buckets" (
-  "id" serial PRIMARY KEY,
-  "name" text UNIQUE NOT NULL,
-  "creation_date" timestamp DEFAULT (now()),
-  "acl" acl_type DEFAULT 'PRIVATE',
-  "owner_id" int
+alter table core.bucket_permissions
+    owner to openbucket;
+
+create table core.bucket_tags
+(
+    id        serial
+        primary key,
+    bucket_id integer
+        references core.buckets,
+    tag_key   text not null,
+    tag_value text not null
 );
 
-CREATE TABLE "bucket_permissions" (
-  "id" serial PRIMARY KEY,
-  "bucket_id" int,
-  "grantee_id" int,
-  "permission" permission_type NOT NULL,
-  "date_added" timestamp DEFAULT (now())
+alter table core.bucket_tags
+    owner to openbucket;
+
+create table core.objects
+(
+    id            serial
+        primary key,
+    bucket_id     integer
+        references core.buckets,
+    key           text        not null,
+    etag          varchar(64) not null,
+    version_id    integer default 1,
+    owner_id      integer
+        references core.authorizations,
+    public        boolean default false,
+    size          bigint  default 0,
+    last_modified timestamp   not null,
+    uploaded_at   timestamp   not null
 );
 
-CREATE TABLE "object_tags" (
-  "id" serial PRIMARY KEY,
-  "bucket_id" int,
-  "object_id" int,
-  "tag_key" text NOT NULL,
-  "tag_value" text NOT NULL
+alter table core.objects
+    owner to openbucket;
+
+create table core.object_tags
+(
+    id        serial
+        primary key,
+    bucket_id integer
+        references core.buckets,
+    object_id integer
+        references core.objects,
+    tag_key   text not null,
+    tag_value text not null
 );
 
-CREATE TABLE "bucket_tags" (
-  "id" serial PRIMARY KEY,
-  "bucket_id" int,
-  "tag_key" text NOT NULL,
-  "tag_value" text NOT NULL
-);
+alter table core.object_tags
+    owner to openbucket;
 
-CREATE TABLE "objects" (
-  "id" serial PRIMARY KEY,
-  "bucket_id" int,
-  "key" text NOT NULL,
-  "etag" varchar(64) NOT NULL,
-  "version_id" int DEFAULT 1,
-  "owner_id" int,
-  "public" boolean DEFAULT false,
-  "size" bigint DEFAULT 0,
-  "last_modified" timestamp NOT NULL,
-  "uploaded_at" timestamp NOT NULL
-);
-
-ALTER TABLE "buckets" ADD FOREIGN KEY ("owner_id") REFERENCES "authorizations" ("id");
-ALTER TABLE "bucket_permissions" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-ALTER TABLE "bucket_permissions" ADD FOREIGN KEY ("grantee_id") REFERENCES "authorizations" ("id");
-ALTER TABLE "object_tags" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-ALTER TABLE "object_tags" ADD FOREIGN KEY ("object_id") REFERENCES "objects" ("id");
-ALTER TABLE "bucket_tags" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-ALTER TABLE "objects" ADD FOREIGN KEY ("bucket_id") REFERENCES "buckets" ("id");
-ALTER TABLE "objects" ADD FOREIGN KEY ("owner_id") REFERENCES "authorizations" ("id");
+-- Performance indexes
+create index if not exists idx_objects_bucket_key on core.objects(bucket_id, key);
+create index if not exists idx_object_tags_bucket_object on core.object_tags(bucket_id, object_id);
+create index if not exists idx_bucket_permissions_bucket_grantee on core.bucket_permissions(bucket_id, grantee_id);
+create index if not exists idx_bucket_tags_bucket on core.bucket_tags(bucket_id);

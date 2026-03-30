@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
-	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/util"
@@ -39,17 +37,10 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check bucket in the DB
-	b, err := bucket.GetBucket(bucketName)
-	if err != nil || b == nil {
+	// Get bucket from context (loaded by middleware)
+	b := middleware.RetrieveBucket(r)
+	if b == nil {
 		responder.SendXMLError(w, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist", requestId, hostId)
-		return
-	}
-
-	// Check if object exists
-	if !objects.ObjectExists(bucketName, objectName) {
-		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey",
-			"Object not found", requestId, hostId)
 		return
 	}
 
@@ -59,7 +50,8 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	// Get object info
 	info, err := os.Stat(objPath)
 	if err != nil {
-		responder.SendAccessDeniedXML(w, &requestId, &hostId)
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey",
+			"Object not found", requestId, hostId)
 		return
 	}
 
@@ -72,16 +64,11 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get object metadata
-	meta, err := objects.GetObject(bucketName, objectName, nil)
-	if err != nil {
-		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Error retrieving metadata for object", requestId, hostId)
-		log.Println("Error retrieving metadata for object:", objPath)
-		return
-	}
+	// Get object metadata from context (loaded by middleware)
+	meta := middleware.RetrieveMetadata(r)
 	if meta == nil {
-		responder.SendAccessDeniedXML(w, &requestId, &hostId)
-		log.Println("Error retrieving metadata for object:", objPath)
+		responder.SendXMLError(w, http.StatusNotFound, "NoSuchKey", "Object not found", requestId, hostId)
+		log.Println("Metadata not found for object:", objPath)
 		return
 	}
 

@@ -21,16 +21,18 @@ func CreateObjectTag(req CreateObjectTagReq) error {
 }
 
 func BulkCreateObjectTags(bucketID int, objectID int, tags []types.Tag) error {
-	for _, tag := range tags {
-		err := CreateObjectTag(CreateObjectTagReq{
-			BucketID: bucketID,
-			ObjectID: objectID,
-			Key:      tag.Key,
-			Value:    tag.Value,
-		})
-		if err != nil {
-			return err
-		}
+	if len(tags) == 0 {
+		return nil
 	}
-	return nil
+
+	// Use multi-row INSERT for efficiency (single round-trip instead of N)
+	insert := db.Psql.Insert("object_tags").
+		Columns("bucket_id", "object_id", "tag_key", "tag_value")
+
+	for _, tag := range tags {
+		insert = insert.Values(bucketID, objectID, tag.Key, tag.Value)
+	}
+
+	_, err := insert.Exec()
+	return err
 }

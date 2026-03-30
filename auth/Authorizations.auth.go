@@ -4,12 +4,46 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/types"
 )
+
+// authCacheEntry holds a cached authorization with expiry time
+type authCacheEntry struct {
+	auth      *types.Authorization
+	expiresAt time.Time
+}
+
+// authCache is a simple in-memory cache for authorization lookups
+var authCache sync.Map
+
+// authCacheTTL is how long cached auth entries are valid
+const authCacheTTL = 5 * time.Minute
+
+// getCachedAuth retrieves an auth from cache if valid
+func getCachedAuth(keyID string) (*types.Authorization, bool) {
+	if entry, ok := authCache.Load(keyID); ok {
+		cached := entry.(*authCacheEntry)
+		if time.Now().Before(cached.expiresAt) {
+			return cached.auth, true
+		}
+		// Expired - delete from cache
+		authCache.Delete(keyID)
+	}
+	return nil, false
+}
+
+// setCachedAuth stores an auth in cache
+func setCachedAuth(keyID string, auth *types.Authorization) {
+	authCache.Store(keyID, &authCacheEntry{
+		auth:      auth,
+		expiresAt: time.Now().Add(authCacheTTL),
+	})
+}
 
 func SaveCredentials(creds *types.Authorization) error {
 	if creds == nil {
@@ -96,6 +130,11 @@ func LoadAuthorization(keyID string) (*types.Authorization, error) {
 }
 
 func CheckUserExists(keyID string) (*types.Authorization, error) {
+	// Check cache first
+	if cached, ok := getCachedAuth(keyID); ok {
+		return cached, nil
+	}
+
 	row := db.Psql.
 		Select("id", "name", "key_id", "secret_key", "date_created").
 		From("authorizations").
@@ -110,6 +149,10 @@ func CheckUserExists(keyID string) (*types.Authorization, error) {
 	if err != nil {
 		return nil, fmt.Errorf("db error: %v", err)
 	}
+
+	// Store in cache
+	setCachedAuth(keyID, &a)
+
 	return &a, nil
 }
 

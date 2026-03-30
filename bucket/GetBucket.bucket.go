@@ -9,7 +9,25 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func GetBucket(bucketName string) (*types.Bucket, error) {
+// GetBucketOptions configures what data to load with GetBucket
+type GetBucketOptions struct {
+	IncludeGrants bool
+}
+
+// DefaultGetBucketOptions returns the default options (backward compatible - includes grants)
+func DefaultGetBucketOptions() *GetBucketOptions {
+	return &GetBucketOptions{
+		IncludeGrants: true,
+	}
+}
+
+func GetBucket(bucketName string, opts ...*GetBucketOptions) (*types.Bucket, error) {
+	// Use default options if none provided (backward compatible)
+	opt := DefaultGetBucketOptions()
+	if len(opts) > 0 && opts[0] != nil {
+		opt = opts[0]
+	}
+
 	rows, err := db.Psql.Select(
 		"buckets.id",
 		"buckets.name",
@@ -43,14 +61,15 @@ func GetBucket(bucketName string) (*types.Bucket, error) {
 			return nil, fmt.Errorf("scan bucket: %w", err)
 		}
 
-		// Get the bucket grants
-		grants, err := GetBucketGrants(bucketName)
-		if err != nil {
-			log.Println("Error getting bucket grants:", err)
-			return nil, fmt.Errorf("error getting bucket grants: %w", err)
+		// Get the bucket grants only if requested
+		if opt.IncludeGrants {
+			grants, err := GetBucketGrants(bucketName)
+			if err != nil {
+				log.Println("Error getting bucket grants:", err)
+				return nil, fmt.Errorf("error getting bucket grants: %w", err)
+			}
+			bucket.Grants = grants
 		}
-
-		bucket.Grants = grants
 
 		return &bucket, nil
 	}

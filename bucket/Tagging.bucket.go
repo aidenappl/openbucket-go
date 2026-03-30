@@ -18,15 +18,14 @@ func BulkCreateBucketTags(bucketID int, tags []types.BucketTag) error {
 		return nil
 	}
 
-	// Create a slice of the values to insert
-	values := make([]interface{}, 0, len(tags)*3)
+	// Use multi-row INSERT for efficiency (single round-trip instead of N)
+	insert := db.Psql.Insert("bucket_tags").
+		Columns("bucket_id", "tag_key", "tag_value")
+
 	for _, tag := range tags {
-		values = append(values, bucketID, tag.Key, tag.Value)
+		insert = insert.Values(bucketID, tag.Key, tag.Value)
 	}
 
-	_, err := db.Psql.Insert("bucket_tags").
-		Columns("bucket_id", "tag_key", "tag_value").
-		Values(values...).
-		Exec()
+	_, err := insert.Exec()
 	return err
 }

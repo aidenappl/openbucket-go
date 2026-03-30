@@ -9,21 +9,34 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
-func ListObjects(bucketName string) ([]types.ObjectMetadata, error) {
-	// Get the bucket & validate it exists
-	b, err := bucket.GetBucket(bucketName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get bucket %q: %w", bucketName, err)
-	}
+// ListObjectsOptions configures the ListObjects query
+type ListObjectsOptions struct {
+	BucketID int // If provided, skips bucket lookup
+}
 
-	// If bucket is nil, then it does not exist
-	if b == nil {
-		return nil, fmt.Errorf("bucket %q not found", bucketName)
+func ListObjects(bucketName string, opts ...*ListObjectsOptions) ([]types.ObjectMetadata, error) {
+	var bucketID int
+
+	// Check if bucket ID was provided to skip lookup
+	if len(opts) > 0 && opts[0] != nil && opts[0].BucketID > 0 {
+		bucketID = opts[0].BucketID
+	} else {
+		// Get the bucket & validate it exists
+		b, err := bucket.GetBucket(bucketName, &bucket.GetBucketOptions{IncludeGrants: false})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get bucket %q: %w", bucketName, err)
+		}
+
+		// If bucket is nil, then it does not exist
+		if b == nil {
+			return nil, fmt.Errorf("bucket %q not found", bucketName)
+		}
+		bucketID = b.ID
 	}
 
 	var out []types.ObjectMetadata
 
-	// List all objects within a bucket
+	// List all objects within a bucket using bucket ID for efficiency
 	query := db.Psql.Select(
 		"objects.id",
 		"objects.bucket_id",
@@ -40,9 +53,8 @@ func ListObjects(bucketName string) ([]types.ObjectMetadata, error) {
 		"authorizations.name",
 	).
 		From("objects").
-		Join("buckets ON objects.bucket_id = buckets.id").
 		Join("authorizations ON objects.owner_id = authorizations.id").
-		Where(sq.Eq{"buckets.name": bucketName})
+		Where(sq.Eq{"objects.bucket_id": bucketID})
 
 	// Any future conditionals can go below:
 

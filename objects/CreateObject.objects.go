@@ -31,25 +31,25 @@ func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent 
 	}
 	defer file.Close()
 
+	// Create ETag writer to calculate hash while writing (avoids re-reading file)
+	etagWriter := tools.NewETagWriter(file, filePath)
+
 	if bodyContent != nil {
-		_, err = io.Copy(file, bodyContent)
+		_, err = io.Copy(etagWriter, bodyContent)
 		if err != nil {
 			log.Println("Error saving file:", err)
 			return nil, err
 		}
 	} else if osContent != nil {
-		_, err = file.Write(*osContent)
+		_, err = etagWriter.Write(*osContent)
 		if err != nil {
 			log.Println("Error saving file:", err)
 			return nil, err
 		}
 	}
 
-	etag, err := tools.GenerateETag(filePath)
-	if err != nil {
-		log.Println("Error generating ETag:", err)
-		return nil, err
-	}
+	// Get ETag from writer (no need to re-read file)
+	etag := etagWriter.ETag()
 
 	stat, err := file.Stat()
 	if err != nil {
