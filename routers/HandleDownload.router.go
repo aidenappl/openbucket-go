@@ -256,7 +256,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	metadata := middleware.RetrieveMetadata(r)  // File metadata
 	session := middleware.RetrieveSession(r)    // User session
 
-	if !metadata.Public && !types.IsBucketACLRead(permissions.ACL) && session == nil {
+	if (metadata == nil || !metadata.Public) && (permissions == nil || !types.IsBucketACLRead(permissions.ACL)) && session == nil {
 		// Check if request has a valid presigned URL
 		if !isValidPresignURL(r, bucket, key) {
 			responder.SendAccessDeniedXML(w, &request, &host)
@@ -267,15 +267,17 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Structure response headers
-	w.Header().Set("ETag", metadata.ETag.ToString())
-	w.Header().Set("x-amz-meta-owner-id", metadata.Owner.ID)
-	w.Header().Set("x-amz-meta-owner-display-name", metadata.Owner.DisplayName)
-	w.Header().Set("x-amz-meta-acl", tools.ACLString(metadata.Public))
+	if metadata != nil {
+		w.Header().Set("ETag", metadata.ETag.ToString())
+		w.Header().Set("x-amz-meta-owner-id", metadata.Owner.ID)
+		w.Header().Set("x-amz-meta-owner-display-name", metadata.Owner.DisplayName)
+		w.Header().Set("x-amz-meta-acl", tools.ACLString(metadata.Public))
+		w.Header().Set("x-amz-tagging-count", strconv.Itoa(len(metadata.Tags.Tag)))
+		w.Header().Set("x-amz-version-id", strconv.Itoa(metadata.VersionID))
+	}
 	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 	w.Header().Set("Content-Type", tools.ContentType(filePath))
 	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))
-	w.Header().Set("x-amz-tagging-count", strconv.Itoa(len(metadata.Tags.Tag)))
-	w.Header().Set("x-amz-version-id", strconv.Itoa(metadata.VersionID))
 
 	// Transfer file content
 	_, err = io.Copy(w, file)

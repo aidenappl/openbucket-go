@@ -3,6 +3,7 @@ package aws
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -59,6 +60,11 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 		return false
 	}
 
+	// Reject requests with timestamps more than 15 minutes from current time
+	if time.Since(date).Abs() > 15*time.Minute {
+		return false
+	}
+
 	// Load secret key
 	secretKey, err := loadSecretKeyByAccessKey(accessKey)
 	if err != nil || secretKey == nil {
@@ -71,7 +77,7 @@ func ValidateSignature(r *http.Request, authorizationHeader, dateHeader, amzCont
 	signingKey := deriveSigningKey(*secretKey, date, env.Region, "s3")
 	computedSignature := computeSignature(signingKey, stringToSign)
 
-	return computedSignature == signature
+	return subtle.ConstantTimeCompare([]byte(computedSignature), []byte(signature)) == 1
 }
 
 // buildCanonicalRequest builds the canonical request string per AWS Signature V4 spec.
@@ -368,6 +374,11 @@ func ValidatePresignedURLSignature(r *http.Request, credential, signedHeaders, s
 		return false
 	}
 
+	// Reject requests with timestamps more than 15 minutes from current time
+	if time.Since(date).Abs() > 15*time.Minute {
+		return false
+	}
+
 	// Load secret key
 	secretKey, err := loadSecretKeyByAccessKey(accessKey)
 	if err != nil || secretKey == nil {
@@ -381,7 +392,7 @@ func ValidatePresignedURLSignature(r *http.Request, credential, signedHeaders, s
 	signingKey := deriveSigningKey(*secretKey, date, region, service)
 	computedSignature := computeSignature(signingKey, stringToSign)
 
-	return computedSignature == signature
+	return subtle.ConstantTimeCompare([]byte(computedSignature), []byte(signature)) == 1
 }
 
 // buildPresignedCanonicalRequest builds the canonical request for presigned URL validation.

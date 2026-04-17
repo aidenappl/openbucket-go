@@ -56,6 +56,7 @@ func handleDeleteObjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// parse body to DeleteRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var deleteRequest types.DeleteRequest
 	if err := xml.NewDecoder(r.Body).Decode(&deleteRequest); err != nil {
 		log.Printf("Failed to parse delete request body: %v", err)

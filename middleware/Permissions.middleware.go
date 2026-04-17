@@ -10,7 +10,6 @@ import (
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/aws"
 	"github.com/aidenappl/openbucket-go/bucket"
-	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
@@ -55,6 +54,12 @@ func HalfAuthorized(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if session == nil {
 			deny(fmt.Sprintf("Unauthorized: user with KEY_ID %s not found", keyID), nil)
+			return
+		}
+
+		// Validate AWS signature to prevent access with only a valid key ID
+		if !validateAWSSignature(r) {
+			deny("Invalid AWS signature for "+r.Method+" "+r.URL.Path, nil)
 			return
 		}
 
@@ -176,18 +181,21 @@ func Authorized(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// isFastPathAllowed checks if the request can be served without further permission checks
+// isFastPathAllowed checks if the request can be served without further permission checks.
+// Write and delete operations always require authentication and are never fast-pathed.
 func isFastPathAllowed(perms *types.Bucket, ctx context.Context, r *http.Request) bool {
+	// Never skip auth for write/delete operations
+	if isWriteRoute(r) {
+		return false
+	}
+
 	if perms != nil {
-		if isWriteRoute(r) && types.IsBucketACLWrite(perms.ACL) {
-			return true
-		}
 		if isReadRoute(r) && types.IsBucketACLRead(perms.ACL) {
 			return true
 		}
 	}
 
-	// Object‑level public flag
+	// Object-level public flag (read only)
 	if mdRaw := r.Context().Value(MetadataContextKey); mdRaw != nil && isReadRoute(r) {
 		if md, ok := mdRaw.(*types.ObjectMetadata); ok && md.Public {
 			return true
@@ -226,14 +234,6 @@ func authoriseByACL(keyID, bucket string, r *http.Request) (*types.Authorization
 
 // GetAccessKeyFromRequest extracts the access key from the request's Authorization header.
 func GetAccessKeyFromRequest(r *http.Request) (string, error) {
-
-	if env.BypassPermissions {
-		authorizationHeader := r.Header.Get("Authorization")
-		if authorizationHeader == "" {
-			return "", fmt.Errorf("authorization header is missing")
-		}
-		return authorizationHeader, nil
-	}
 
 	// Check for presigned URL credential first
 	credential := r.URL.Query().Get("X-Amz-Credential")

@@ -185,6 +185,7 @@ func handlePutBucketTagging(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse the request body
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var taggingReq types.PutBucketTaggingRequest
 	if err := xml.NewDecoder(r.Body).Decode(&taggingReq); err != nil {
 		responder.SendXMLError(w, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or did not validate against our published schema", requestID, hostID)

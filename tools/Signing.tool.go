@@ -3,6 +3,7 @@ package tools
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -58,5 +59,5 @@ func ValidatePresignedURL(r *http.Request) bool {
 	stringToSign := fmt.Sprintf("%s/%s/%s?expires=%s", bucket, key, secretKey, expiration)
 	expectedSignature := generateHMACSignature(stringToSign, secretKey)
 
-	return expectedSignature == signature
+	return subtle.ConstantTimeCompare([]byte(expectedSignature), []byte(signature)) == 1
 }

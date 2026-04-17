@@ -126,6 +126,10 @@ func LoadAuthorization(keyID string) (*types.Authorization, error) {
 		return nil, fmt.Errorf("failed to iterate over authorizations: %v", err)
 	}
 
+	if auth.ID == 0 {
+		return nil, nil
+	}
+
 	return &auth, nil
 }
 

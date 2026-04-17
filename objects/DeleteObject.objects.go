@@ -3,6 +3,7 @@ package objects
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	sq "github.com/Masterminds/squirrel"
@@ -10,22 +11,39 @@ import (
 	"github.com/aidenappl/openbucket-go/types"
 )
 
+// validateBucketPath ensures the resolved path stays within the bucket directory.
+func validateBucketPath(bucketName, key string) (string, error) {
+	if key == "" || key == "." || key == ".." || strings.Contains(key, "..") {
+		return "", fmt.Errorf("invalid key: path traversal detected")
+	}
+	base := filepath.Join("buckets", bucketName)
+	full := filepath.Join(base, key)
+	absBase, _ := filepath.Abs(base)
+	absFull, _ := filepath.Abs(full)
+	if !strings.HasPrefix(absFull, absBase+string(filepath.Separator)) && absFull != absBase {
+		return "", fmt.Errorf("invalid key: path traversal detected")
+	}
+	return full, nil
+}
+
 // DeleteObject removes an object from a bucket
 func DeleteObject(bucket types.Bucket, objectName string) error {
-	// Structure bucket
-	filePath := "buckets/" + bucket.Name
+	// Validate path to prevent traversal
+	resolvedPath, err := validateBucketPath(bucket.Name, objectName)
+	if err != nil {
+		return err
+	}
 
 	// check if object or folder
 	if strings.HasSuffix(objectName, "/") {
-		folderName := strings.TrimSuffix(objectName, "/")
 		// Attempt to remove the folder
-		err := os.RemoveAll(filePath + "/" + folderName)
+		err := os.RemoveAll(resolvedPath)
 		if err != nil {
 			return fmt.Errorf("failed to delete object folder: %v", err) // Return the error if deletion fails
 		}
 	} else {
 		// Attempt to remove the object file
-		err := os.Remove(filePath + "/" + objectName)
+		err := os.Remove(resolvedPath)
 		if err != nil {
 			return fmt.Errorf("failed to delete object file: %v", err) // Return the error if deletion fails
 		}

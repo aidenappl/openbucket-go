@@ -1,10 +1,12 @@
 package objects
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aidenappl/openbucket-go/db"
@@ -16,6 +18,17 @@ func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent 
 	if public == nil {
 		public = new(bool)
 		*public = false
+	}
+
+	// Validate path to prevent traversal
+	if strings.Contains(key, "..") {
+		return nil, fmt.Errorf("invalid key: path traversal detected")
+	}
+	base := filepath.Join("buckets", bucket.Name)
+	absBase, _ := filepath.Abs(base)
+	absFull, _ := filepath.Abs(filePath)
+	if !strings.HasPrefix(absFull, absBase+string(filepath.Separator)) && absFull != absBase {
+		return nil, fmt.Errorf("invalid key: path traversal detected")
 	}
 
 	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
