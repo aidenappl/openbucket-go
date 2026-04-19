@@ -21,8 +21,5 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/openbucket /app/
 
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
-USER appuser
-
 EXPOSE 8080
 CMD ["./openbucket"]
