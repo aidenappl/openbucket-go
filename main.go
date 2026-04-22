@@ -22,6 +22,13 @@ func startServer() {
 		log.Println("✅ Database connection established")
 	}
 
+	// Run auto-migrations (idempotent — safe on every startup)
+	if err := db.RunMigrations(); err != nil {
+		log.Fatal("Error running migrations:", err)
+	} else {
+		log.Println("✅ Database schema ready")
+	}
+
 	// Create a new router
 	r := mux.NewRouter()
 
