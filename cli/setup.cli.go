@@ -92,6 +92,29 @@ func SetupCLI() {
 	}
 	rootCmd.AddCommand(listCredentialsCmd)
 
+	// `openbucket export-bucket [bucket_name] [output_path]`
+	// Export a bucket to a .tar.gz archive.
+	var exportBucketCmd = &cobra.Command{
+		Use:   "export-bucket [bucket_name] [output.tar.gz]",
+		Short: "Export a bucket to a tar.gz archive",
+		Long:  "Export a complete bucket (metadata, permissions, tags, and all objects) to a portable tar.gz archive.",
+		Args:  cobra.ExactArgs(2),
+		RunE:  exportBucket,
+	}
+	rootCmd.AddCommand(exportBucketCmd)
+
+	// `openbucket import-bucket [archive_path]`
+	// Import a bucket from a .tar.gz archive.
+	var importBucketCmd = &cobra.Command{
+		Use:   "import-bucket [archive.tar.gz]",
+		Short: "Import a bucket from a tar.gz archive",
+		Long:  "Import a bucket from an archive produced by export-bucket. Recreates the bucket with all metadata, permissions, and objects.",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE:  importBucket,
+	}
+	importBucketCmd.Flags().StringP("name", "n", "", "override the bucket name (default: use name from archive)")
+	rootCmd.AddCommand(importBucketCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		log.Println("Error executing CLI command:", err)
 		os.Exit(1)

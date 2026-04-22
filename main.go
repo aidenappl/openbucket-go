@@ -39,6 +39,7 @@ func startServer() {
 	r.Use(middleware.LoggingMiddleware)
 
 	r.HandleFunc("/", middleware.HalfAuthorized(routers.HandleListBuckets)).Methods(http.MethodGet)
+	r.HandleFunc("/_import", middleware.HalfAuthorized(routers.HandleImportBucket)).Methods(http.MethodPost)
 
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleBucket)).Methods(http.MethodGet)
 	r.HandleFunc("/{bucket}", middleware.HalfAuthorized(routers.HandleCreateBucket)).Methods(http.MethodPut)

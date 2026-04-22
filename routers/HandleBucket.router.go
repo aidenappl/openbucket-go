@@ -34,6 +34,10 @@ func HandleBucket(w http.ResponseWriter, r *http.Request) {
 		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Session query parameter is not supported", "", "")
 		return
 	}
+	if _, ok := q["export"]; ok {
+		HandleExportBucket(w, r, bucket)
+		return
+	}
 	if _, ok := q["location"]; ok {
 		handleGetBucketLocation(w, r, bucket)
 		return
