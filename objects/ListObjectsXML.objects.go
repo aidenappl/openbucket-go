@@ -14,6 +14,10 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 	prefix := q.Get("prefix")
 	delimiter := q.Get("delimiter")
 	encodingType := q.Get("encoding-type")
+	startAfter := q.Get("start-after")
+	if startAfter == "" {
+		startAfter = q.Get("marker")
+	}
 	maxKeys := 1000
 
 	if v := q.Get("max-keys"); v != "" {
@@ -22,23 +26,28 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 		}
 	}
 
-	all, err := ListObjects(bucket)
+	normPrefix := strings.TrimPrefix(prefix, "/")
+
+	opts := &ListObjectsOptions{
+		Prefix:     normPrefix,
+		StartAfter: startAfter,
+	}
+
+	// When no delimiter, SQL can handle the full limit
+	if delimiter == "" {
+		opts.Limit = maxKeys
+	}
+
+	all, err := ListObjects(bucket, opts)
 	if err != nil {
 		return nil, err
 	}
-
-	normPrefix := strings.TrimPrefix(prefix, "/")
 
 	var contents []types.ObjectMetadata
 	cpMap := make(map[string]struct{})
 
 	for _, obj := range all {
 		key := obj.Key
-
-		// Filter by prefix
-		if normPrefix != "" && !strings.HasPrefix(key, normPrefix) {
-			continue
-		}
 
 		// Check against isIgnored
 		if isIgnored(key) {
@@ -73,15 +82,10 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 			if strings.HasSuffix(key, "/") {
 				continue
 			}
-		} else {
-			// No delimiter → return everything (including placeholder keys)
 		}
 
 		contents = append(contents, obj)
 	}
-
-	// Sort results
-	sort.Slice(contents, func(i, j int) bool { return contents[i].Key < contents[j].Key })
 
 	var cps []types.CommonPrefix
 	for p := range cpMap {

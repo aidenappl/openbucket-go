@@ -1,11 +1,10 @@
 package util
 
+import "strings"
+
 func GetBucketPath(bucketName string) string {
-	// validate bucket name
-	if bucketName == "" {
+	if bucketName == "" || strings.Contains(bucketName, "..") || strings.Contains(bucketName, "/") {
 		return ""
 	}
-
-	// Structure bucket
 	return "buckets/" + bucketName
 }

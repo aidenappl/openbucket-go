@@ -12,6 +12,7 @@ import (
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
@@ -222,9 +223,9 @@ func handleNewBucket(w http.ResponseWriter, r *http.Request) {
 	requestID := middleware.GetRequestID(r)
 	hostID := middleware.GetHostID(r)
 
-	// Validate bucket
-	if bucketName == "" {
-		responder.SendAccessDeniedXML(w, &requestID, &hostID)
+	// Validate bucket name
+	if err := util.ValidateBucketName(bucketName); err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidBucketName", err.Error(), requestID, hostID)
 		return
 	}
 

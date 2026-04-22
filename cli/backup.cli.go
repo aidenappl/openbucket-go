@@ -77,6 +77,13 @@ func exportBucket(cmd *cobra.Command, args []string) error {
 		})
 	}
 
+	// Batch-load all object tags in one query
+	allTags, err := objects.BatchGetObjectTags(b.ID)
+	if err != nil {
+		log.Printf("  warning: could not load object tags: %v", err)
+		allTags = make(map[int][]types.Tag)
+	}
+
 	for _, obj := range objs {
 		meta := types.BackupObjectMetadata{
 			Key:          obj.Key,
@@ -86,11 +93,8 @@ func exportBucket(cmd *cobra.Command, args []string) error {
 			LastModified: time.Time(obj.LastModified),
 			OwnerKeyID:   obj.Owner.ID,
 		}
-		objTags, err := objects.GetObjectTags(b.ID, obj.ID)
-		if err == nil {
-			for _, t := range objTags {
-				meta.Tags = append(meta.Tags, types.BackupTag{Key: t.Key, Value: t.Value})
-			}
+		for _, t := range allTags[obj.ID] {
+			meta.Tags = append(meta.Tags, types.BackupTag{Key: t.Key, Value: t.Value})
 		}
 		manifest.Objects = append(manifest.Objects, meta)
 	}

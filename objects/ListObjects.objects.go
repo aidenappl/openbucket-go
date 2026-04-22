@@ -11,7 +11,10 @@ import (
 
 // ListObjectsOptions configures the ListObjects query
 type ListObjectsOptions struct {
-	BucketID int // If provided, skips bucket lookup
+	BucketID   int    // If provided, skips bucket lookup
+	Prefix     string // SQL LIKE prefix filter
+	StartAfter string // For pagination: only return keys > this value
+	Limit      int    // Max rows to return (0 = unlimited)
 }
 
 func ListObjects(bucketName string, opts ...*ListObjectsOptions) ([]types.ObjectMetadata, error) {
@@ -56,7 +59,21 @@ func ListObjects(bucketName string, opts ...*ListObjectsOptions) ([]types.Object
 		Join("authorizations ON objects.owner_id = authorizations.id").
 		Where(sq.Eq{"objects.bucket_id": bucketID})
 
-	// Any future conditionals can go below:
+	// Apply optional filters
+	if len(opts) > 0 && opts[0] != nil {
+		o := opts[0]
+		if o.Prefix != "" {
+			query = query.Where("objects.key LIKE ?", o.Prefix+"%")
+		}
+		if o.StartAfter != "" {
+			query = query.Where(sq.Gt{"objects.key": o.StartAfter})
+		}
+		if o.Limit > 0 {
+			query = query.Limit(uint64(o.Limit))
+		}
+	}
+
+	query = query.OrderBy("objects.key ASC")
 
 	// Run the query
 	rows, err := query.Query()

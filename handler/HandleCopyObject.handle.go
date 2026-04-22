@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/middleware"
@@ -13,6 +14,7 @@ import (
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
@@ -42,12 +44,29 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// remove bucket from source if present
-	if len(value) > len(bucketName) && value[0:len(bucketName)] == bucketName {
+	// Strip leading slash
+	value = strings.TrimPrefix(value, "/")
+
+	// Remove bucket prefix from source if present (e.g. "mybucket/key" -> "key")
+	if strings.HasPrefix(value, bucketName+"/") {
 		value = value[len(bucketName)+1:]
 	}
 
+	// Validate source key
+	if err := util.ValidateObjectKey(value); err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Invalid copy source key: "+err.Error(), "", "")
+		return
+	}
+
 	filePath := filepath.Join("buckets", bucketName, value)
+
+	// Verify resolved path stays within bucket directory
+	absBase, _ := filepath.Abs(filepath.Join("buckets", bucketName))
+	absFull, _ := filepath.Abs(filePath)
+	if !strings.HasPrefix(absFull, absBase+string(filepath.Separator)) && absFull != absBase {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Path traversal detected", "", "")
+		return
+	}
 
 	objectMetadata, err := objects.GetObject(bucketName, value, nil)
 	if err != nil {

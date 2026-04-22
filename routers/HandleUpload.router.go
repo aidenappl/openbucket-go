@@ -258,6 +258,12 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate object key length and safety
+	if err := util.ValidateObjectKey(key); err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidKey", err.Error(), requestId, hostId)
+		return
+	}
+
 	// Gather the user session
 	user := middleware.RetrieveSession(r)
 	if user == nil {

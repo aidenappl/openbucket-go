@@ -44,13 +44,24 @@ func isFileDownload(r *http.Request) bool {
 
 func MuxHeaderMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Reflect the request origin instead of wildcard so credentialed
+		// requests work correctly per the CORS spec.
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, "+
 			"Content-Type, "+
 			"Accept-Encoding, "+
 			"Connection, "+
-			"Content-Length")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
+			"Content-Length, "+
+			"X-Amz-Date, "+
+			"X-Amz-Content-SHA256, "+
+			"X-Amz-Copy-Source")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, HEAD, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Add("Content-Type", "application/json")
 		w.Header().Add("Server", "Go")

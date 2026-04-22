@@ -13,6 +13,11 @@ import (
 func HandleListBuckets(w http.ResponseWriter, r *http.Request) {
 	// Get the user session
 	session := middleware.RetrieveSession(r)
+	if session == nil {
+		responder.SendXMLError(w, http.StatusForbidden, "AccessDenied",
+			"Authentication required", middleware.GetRequestID(r), middleware.GetHostID(r))
+		return
+	}
 
 	// List all buckets
 	bucketsList, err := bucket.ListBucketsXML(&bucket.ListBucketsParams{

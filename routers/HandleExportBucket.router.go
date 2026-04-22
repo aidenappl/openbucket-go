@@ -82,8 +82,15 @@ func HandleExportBucket(w http.ResponseWriter, r *http.Request, bucketName strin
 		})
 	}
 
+	// Batch-load all object tags in one query
+	allTags, err := objects.BatchGetObjectTags(b.ID)
+	if err != nil {
+		log.Println("export: error batch-loading object tags:", err)
+		allTags = make(map[int][]types.Tag)
+	}
+
 	// Object metadata + tags
-	for i, obj := range objs {
+	for _, obj := range objs {
 		meta := types.BackupObjectMetadata{
 			Key:          obj.Key,
 			ETag:         string(*obj.ETag),
@@ -93,21 +100,11 @@ func HandleExportBucket(w http.ResponseWriter, r *http.Request, bucketName strin
 			OwnerKeyID:   obj.Owner.ID,
 		}
 
-		objTags, err := objects.GetObjectTags(b.ID, obj.ID)
-		if err != nil {
-			log.Printf("export: error loading tags for object %s: %v", obj.Key, err)
-		} else {
-			for _, t := range objTags {
-				meta.Tags = append(meta.Tags, types.BackupTag{Key: t.Key, Value: t.Value})
-			}
+		for _, t := range allTags[obj.ID] {
+			meta.Tags = append(meta.Tags, types.BackupTag{Key: t.Key, Value: t.Value})
 		}
 
 		manifest.Objects = append(manifest.Objects, meta)
-
-		// Log progress for large exports
-		if (i+1)%1000 == 0 {
-			log.Printf("export: processed metadata for %d/%d objects", i+1, len(objs))
-		}
 	}
 
 	// Stream the tar.gz response
