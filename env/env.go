@@ -11,6 +11,7 @@ var (
 	Database          = getEnvOrPanic("DATABASE")
 	PresignSecretKey  = getEnvOrPanic("PRESIGN_SECRET_KEY")
 	PresignBaseURL    = getEnv("PRESIGN_BASE_URL", "http://localhost:8080")
+	AdminToken        = getEnvOrPanic("OB_ADMIN_TOKEN")
 )
 
 func getEnv(key string, fallback string) string {

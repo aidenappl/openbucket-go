@@ -38,6 +38,30 @@ func startServer() {
 	// Logging middleware for console output
 	r.Use(middleware.LoggingMiddleware)
 
+	// ── Admin API (bearer token auth, JSON responses) ────────────────────
+	admin := r.PathPrefix("/admin/").Subrouter()
+	admin.Use(middleware.AdminAuth)
+
+	// Credentials
+	admin.HandleFunc("/credentials", routers.HandleAdminListCredentials).Methods(http.MethodGet)
+	admin.HandleFunc("/credentials", routers.HandleAdminCreateCredential).Methods(http.MethodPost)
+	admin.HandleFunc("/credentials/{id}", routers.HandleAdminDeleteCredential).Methods(http.MethodDelete)
+
+	// Buckets
+	admin.HandleFunc("/buckets", routers.HandleAdminListBuckets).Methods(http.MethodGet)
+	admin.HandleFunc("/buckets", routers.HandleAdminCreateBucket).Methods(http.MethodPost)
+	admin.HandleFunc("/buckets/{bucket}", routers.HandleAdminGetBucket).Methods(http.MethodGet)
+	admin.HandleFunc("/buckets/{bucket}", routers.HandleAdminDeleteBucket).Methods(http.MethodDelete)
+	admin.HandleFunc("/buckets/{bucket}/stats", routers.HandleAdminGetBucketStats).Methods(http.MethodGet)
+	admin.HandleFunc("/buckets/{bucket}/acl", routers.HandleAdminUpdateBucketACL).Methods(http.MethodPut)
+
+	// Grants
+	admin.HandleFunc("/buckets/{bucket}/grants", routers.HandleAdminListGrants).Methods(http.MethodGet)
+	admin.HandleFunc("/buckets/{bucket}/grants", routers.HandleAdminCreateGrant).Methods(http.MethodPost)
+	admin.HandleFunc("/buckets/{bucket}/grants/{keyId}", routers.HandleAdminUpdateGrant).Methods(http.MethodPut)
+	admin.HandleFunc("/buckets/{bucket}/grants/{id}", routers.HandleAdminDeleteGrant).Methods(http.MethodDelete)
+
+	// ── S3-Compatible API (AWS SigV4 auth, XML responses) ────────────────
 	r.HandleFunc("/", middleware.HalfAuthorized(routers.HandleListBuckets)).Methods(http.MethodGet)
 	r.HandleFunc("/_import", middleware.HalfAuthorized(routers.HandleImportBucket)).Methods(http.MethodPost)
 
