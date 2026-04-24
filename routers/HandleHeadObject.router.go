@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/aidenappl/openbucket-go/middleware"
@@ -44,8 +43,13 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build object path
-	objPath := filepath.Join("buckets", bucketName, objectName)
+	// Validate key to prevent path traversal
+	objPath, err := util.ValidateBucketPath(bucketName, objectName)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest",
+			"Invalid object key", requestId, hostId)
+		return
+	}
 
 	// Get object info
 	info, err := os.Stat(objPath)

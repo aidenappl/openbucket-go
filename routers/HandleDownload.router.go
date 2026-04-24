@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/aidenappl/openbucket-go/responder"
 	"github.com/aidenappl/openbucket-go/tools"
 	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 	"github.com/gorilla/mux"
 )
 
@@ -222,8 +222,12 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Structure request
-	filePath := filepath.Join("buckets", bucket, key)
+	// Validate key to prevent path traversal
+	filePath, err := util.ValidateBucketPath(bucket, key)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Invalid object key", request, host)
+		return
+	}
 
 	// Open requested file
 	file, err := os.Open(filePath)

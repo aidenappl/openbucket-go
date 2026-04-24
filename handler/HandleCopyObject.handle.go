@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/aidenappl/openbucket-go/auth"
@@ -52,19 +51,10 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		value = value[len(bucketName)+1:]
 	}
 
-	// Validate source key
-	if err := util.ValidateObjectKey(value); err != nil {
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Invalid copy source key: "+err.Error(), "", "")
-		return
-	}
-
-	filePath := filepath.Join("buckets", bucketName, value)
-
-	// Verify resolved path stays within bucket directory
-	absBase, _ := filepath.Abs(filepath.Join("buckets", bucketName))
-	absFull, _ := filepath.Abs(filePath)
-	if !strings.HasPrefix(absFull, absBase+string(filepath.Separator)) && absFull != absBase {
-		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Path traversal detected", "", "")
+	// Validate source key and prevent path traversal
+	filePath, err := util.ValidateBucketPath(bucketName, value)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Invalid copy source key", "", "")
 		return
 	}
 
@@ -93,7 +83,12 @@ func HandleCopyObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	destinationFilePath := filepath.Join("buckets", bucketName, destination)
+	// Validate destination key
+	destinationFilePath, err := util.ValidateBucketPath(bucketName, destination)
+	if err != nil {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidRequest", "Invalid destination key", "", "")
+		return
+	}
 
 	// check if destination file already exists
 	if _, err := os.Stat(destinationFilePath); !os.IsNotExist(err) {

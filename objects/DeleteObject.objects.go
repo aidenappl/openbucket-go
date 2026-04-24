@@ -3,33 +3,18 @@ package objects
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/types"
+	"github.com/aidenappl/openbucket-go/util"
 )
-
-// validateBucketPath ensures the resolved path stays within the bucket directory.
-func validateBucketPath(bucketName, key string) (string, error) {
-	if key == "" || key == "." || key == ".." || strings.Contains(key, "..") {
-		return "", fmt.Errorf("invalid key: path traversal detected")
-	}
-	base := filepath.Join("buckets", bucketName)
-	full := filepath.Join(base, key)
-	absBase, _ := filepath.Abs(base)
-	absFull, _ := filepath.Abs(full)
-	if !strings.HasPrefix(absFull, absBase+string(filepath.Separator)) && absFull != absBase {
-		return "", fmt.Errorf("invalid key: path traversal detected")
-	}
-	return full, nil
-}
 
 // DeleteObject removes an object from a bucket
 func DeleteObject(bucket types.Bucket, objectName string) error {
 	// Validate path to prevent traversal
-	resolvedPath, err := validateBucketPath(bucket.Name, objectName)
+	resolvedPath, err := util.ValidateBucketPath(bucket.Name, objectName)
 	if err != nil {
 		return err
 	}
