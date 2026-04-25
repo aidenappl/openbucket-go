@@ -177,6 +177,7 @@ func HandleAdminDeleteBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
 	responder.SendJSON(w, http.StatusOK, nil)
 }
 
@@ -239,5 +240,6 @@ func HandleAdminUpdateBucketACL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
 	responder.SendJSON(w, http.StatusOK, nil)
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/responder"
@@ -68,6 +69,8 @@ func HandleAdminCreateGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 	responder.SendJSON(w, http.StatusCreated, nil)
 }
 
@@ -98,12 +101,16 @@ func HandleAdminUpdateGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 	responder.SendJSON(w, http.StatusOK, nil)
 }
 
 // HandleAdminDeleteGrant removes a grant by ID.
 func HandleAdminDeleteGrant(w http.ResponseWriter, r *http.Request) {
-	idStr := mux.Vars(r)["id"]
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	idStr := vars["id"]
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		responder.SendJSONError(w, http.StatusBadRequest, "invalid grant id")
@@ -115,5 +122,7 @@ func HandleAdminDeleteGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 	responder.SendJSON(w, http.StatusOK, nil)
 }

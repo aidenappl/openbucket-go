@@ -160,7 +160,45 @@ func CheckUserExists(keyID string) (*types.Authorization, error) {
 	return &a, nil
 }
 
+// permCacheEntry holds a cached permission grant with expiry time
+type permCacheEntry struct {
+	grant     *types.Grant
+	expiresAt time.Time
+}
+
+// permCache is a simple in-memory cache for permission lookups
+var permCache sync.Map
+
+// permCacheTTL is how long cached permission entries are valid
+const permCacheTTL = 2 * time.Minute
+
+// permCacheKey creates a composite cache key for user+bucket
+func permCacheKey(keyID, bucketName string) string {
+	return keyID + ":" + bucketName
+}
+
+// InvalidatePermCacheForBucket removes all cached permissions for a bucket.
+func InvalidatePermCacheForBucket(bucketName string) {
+	suffix := ":" + bucketName
+	permCache.Range(func(key, _ any) bool {
+		if k, ok := key.(string); ok && len(k) >= len(suffix) && k[len(k)-len(suffix):] == suffix {
+			permCache.Delete(key)
+		}
+		return true
+	})
+}
+
 func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
+	// Check cache first
+	cacheKey := permCacheKey(keyID, bucketName)
+	if entry, ok := permCache.Load(cacheKey); ok {
+		cached := entry.(*permCacheEntry)
+		if time.Now().Before(cached.expiresAt) {
+			return cached.grant, nil
+		}
+		permCache.Delete(cacheKey)
+	}
+
 	row := db.Psql.
 		Select(
 			"bp.permission",
@@ -180,10 +218,13 @@ func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
 	var grant types.Grant
 	err := row.Scan(&grant.Permission, &grant.DateAdded, &grant.Grantee.ID, &grant.Grantee.DisplayName)
 	if err == sql.ErrNoRows {
+		permCache.Store(cacheKey, &permCacheEntry{grant: nil, expiresAt: time.Now().Add(permCacheTTL)})
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("db error: %v", err)
 	}
+
+	permCache.Store(cacheKey, &permCacheEntry{grant: &grant, expiresAt: time.Now().Add(permCacheTTL)})
 	return &grant, nil
 }

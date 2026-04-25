@@ -121,9 +121,10 @@ var DB = func() *sql.DB {
 		panic(fmt.Errorf("error opening database: %w", err))
 	}
 
-	// Configure connection pool for performance
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(10)
+	// Configure connection pool — sized for concurrent S3 requests
+	// Each middleware chain uses 3-4 DB queries, so we need headroom
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db

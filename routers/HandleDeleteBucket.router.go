@@ -191,6 +191,8 @@ func handleBucketDeletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
+
 	// Success Response
 	w.WriteHeader(http.StatusNoContent)
 }

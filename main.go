@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/aidenappl/openbucket-go/cli"
 	"github.com/aidenappl/openbucket-go/db"
@@ -77,10 +78,17 @@ func startServer() {
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUploadModification)).Methods(http.MethodPost)
 
-	// Start the server
+	// Start the server with timeouts to prevent goroutine/connection accumulation
+	server := &http.Server{
+		Addr:         ":" + env.Port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
 	log.Println("✅ Server started at http://localhost:" + env.Port)
-	err := http.ListenAndServe(":"+env.Port, r)
-	if err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("Error starting server:", err)
 	}
 }
