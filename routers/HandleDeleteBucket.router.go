@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/aidenappl/openbucket-go/auth"
 	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
@@ -192,6 +193,7 @@ func handleBucketDeletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 
 	// Success Response
 	w.WriteHeader(http.StatusNoContent)

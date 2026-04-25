@@ -288,6 +288,10 @@ func HandleImportBucket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Invalidate caches — bucket was created then mutated (ACL, grants)
+	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
+
 	log.Printf("import: completed — bucket=%s imported=%d failed=%d skipped_perms=%d",
 		bucketName, importedCount, failedCount, len(skippedPerms))
 

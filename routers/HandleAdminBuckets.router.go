@@ -178,6 +178,7 @@ func HandleAdminDeleteBucket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 	responder.SendJSON(w, http.StatusOK, nil)
 }
 

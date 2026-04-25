@@ -57,5 +57,7 @@ func UpdateGrantAccess(bucketName string, keyID string, acl types.Permission) er
 		return fmt.Errorf("failed to save permissions for bucket %s: %v", bucketName, err)
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 	return nil
 }

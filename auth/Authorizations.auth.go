@@ -218,7 +218,8 @@ func CheckUserPermissions(keyID, bucketName string) (*types.Grant, error) {
 	var grant types.Grant
 	err := row.Scan(&grant.Permission, &grant.DateAdded, &grant.Grantee.ID, &grant.Grantee.DisplayName)
 	if err == sql.ErrNoRows {
-		permCache.Store(cacheKey, &permCacheEntry{grant: nil, expiresAt: time.Now().Add(permCacheTTL)})
+		// Don't cache nil results — a grant could be created at any time,
+		// and stale nil entries would deny access until TTL expires.
 		return nil, nil
 	}
 	if err != nil {

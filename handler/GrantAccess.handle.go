@@ -47,6 +47,7 @@ func GrantAccess(bucketName string, keyID string, acl string) error {
 		return fmt.Errorf("failed to save permissions for bucket %s: %v", bucketName, err)
 	}
 
+	bucket.InvalidateBucketCache(bucketName)
+	auth.InvalidatePermCacheForBucket(bucketName)
 	return nil
-
 }

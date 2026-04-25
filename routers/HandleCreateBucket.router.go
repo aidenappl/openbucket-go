@@ -321,7 +321,6 @@ func handleGrant(name string, value string, bucketName string, grant *types.Gran
 			}
 
 			// Update existing permissions
-			destinationGrant.Permission = reqACL
 			if err := bucket.UpdateGrant(bucket.UpdateGrantReq{
 				BucketID:   b.ID,
 				GranteeID:  authorization.ID,
@@ -345,6 +344,8 @@ func handleGrant(name string, value string, bucketName string, grant *types.Gran
 			})
 		}
 
+		bucket.InvalidateBucketCache(bucketName)
+		auth.InvalidatePermCacheForBucket(bucketName)
 		return nil
 	} else {
 		log.Println("User does not have permission to modify ACLs")

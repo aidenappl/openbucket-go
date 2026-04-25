@@ -23,16 +23,30 @@ var bucketCache sync.Map
 // bucketCacheTTL is how long cached bucket entries are valid
 const bucketCacheTTL = 2 * time.Minute
 
-// getCachedBucket retrieves a bucket from cache if valid
+// getCachedBucket retrieves a bucket from cache if valid.
+// Returns a deep copy so callers cannot corrupt cached data.
 func getCachedBucket(name string) (*types.Bucket, bool) {
 	if entry, ok := bucketCache.Load(name); ok {
 		cached := entry.(*bucketCacheEntry)
 		if time.Now().Before(cached.expiresAt) {
-			return cached.bucket, true
+			return copyBucket(cached.bucket), true
 		}
 		bucketCache.Delete(name)
 	}
 	return nil, false
+}
+
+// copyBucket returns a deep copy of a Bucket so cached data is never mutated.
+func copyBucket(b *types.Bucket) *types.Bucket {
+	if b == nil {
+		return nil
+	}
+	cp := *b
+	if b.Grants != nil {
+		cp.Grants = make([]types.Grant, len(b.Grants))
+		copy(cp.Grants, b.Grants)
+	}
+	return &cp
 }
 
 // setCachedBucket stores a bucket in cache
