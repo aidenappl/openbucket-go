@@ -109,6 +109,8 @@ generate-credentials
 
 - Folders: Just like AWS S3, OpenBucket doesn't store folders separately; prefixes in object keys (path/to/file) are parsed into "CommonPrefixes" at listing time.
 
+- Listing pages: ListObjectsV2 follows S3 paging — keys and CommonPrefixes form one key-ordered stream, a page holds at most `max-keys` (≤1000) of them, and a truncated page returns `NextContinuationToken` (opaque: base64url of the last entry). `continuation-token` and `start-after` (v2) / `marker` → `NextMarker` (v1) are honoured; an unknown token is 400 `InvalidArgument`. Prefixes are matched exactly (SQL `LIKE` treats `_` as a wildcard, so rows are re-checked in Go), and keys are ordered and compared in byte order (`COLLATE "C"`) — under a locale collation like `en_US.utf8` Postgres and Go disagree on page boundaries and keys fall between pages. The logic lives in `listing/` (no DB dependency, unit-tested). Before October 2026 no token was ever returned, so SDK clients stopped at the first 1000 entries.
+
 - ACLs & Permissions: Modeled after S3's AccessControlPolicy, with enums for bucket ACLs and object permissions.
 
 - Tags: Stored separately for buckets and objects (bucket_tags, object_tags).
