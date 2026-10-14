@@ -45,7 +45,7 @@ Now and moving forward I want OpenBucket to:
 
 ### Requirements
 
-- Go 1.21+
+- Go 1.26+
 - PostgreSQL 14+
 - Docker (optional, for local DB setup)
 
