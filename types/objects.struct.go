@@ -95,4 +95,7 @@ type ObjectList struct {
 	ContinuationToken     string           `xml:"ContinuationToken,omitempty"`
 	NextContinuationToken string           `xml:"NextContinuationToken,omitempty"`
 	StartAfter            string           `xml:"StartAfter,omitempty"`
+	// ListObjects v1 paging.
+	Marker     string `xml:"Marker,omitempty"`
+	NextMarker string `xml:"NextMarker,omitempty"`
 }

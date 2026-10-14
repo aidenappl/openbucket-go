@@ -2,6 +2,7 @@ package routers
 
 import (
 	"encoding/xml"
+	"errors"
 	"log"
 	"net/http"
 
@@ -270,6 +271,10 @@ func HandleListObjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	objectList, err := objects.ListObjectsXML(bucket, r.URL.Query())
+	if errors.Is(err, objects.ErrInvalidContinuationToken) {
+		responder.SendXMLError(w, http.StatusBadRequest, "InvalidArgument", err.Error(), "", "")
+		return
+	}
 	if err != nil {
 		responder.SendXMLError(w, http.StatusInternalServerError, "InternalError", "Unable to list objects", "", "")
 		log.Println("Error listing objects:", err)

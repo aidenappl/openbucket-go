@@ -66,14 +66,19 @@ func ListObjects(bucketName string, opts ...*ListObjectsOptions) ([]types.Object
 			query = query.Where("objects.key LIKE ?", o.Prefix+"%")
 		}
 		if o.StartAfter != "" {
-			query = query.Where(sq.Gt{"objects.key": o.StartAfter})
+			query = query.Where(`objects.key COLLATE "C" > ?`, o.StartAfter)
 		}
 		if o.Limit > 0 {
 			query = query.Limit(uint64(o.Limit))
 		}
 	}
 
-	query = query.OrderBy("objects.key ASC")
+	// ⚠️ Byte order (COLLATE "C"), not the database's locale collation. S3
+	// lists keys in UTF-8 binary order and the paging in listing/ compares
+	// bytes; under en_US.utf8 Postgres ignores punctuation like "/", so the
+	// page boundary SQL used (key > after) and the one Go used disagreed and
+	// keys fell between pages (124 of 9,004 lost in a paged recursive listing).
+	query = query.OrderBy(`objects.key COLLATE "C" ASC`)
 
 	// Run the query
 	rows, err := query.Query()
