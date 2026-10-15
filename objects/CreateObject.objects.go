@@ -90,7 +90,7 @@ func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent 
 		time.Now(),
 		1,
 		stat.Size(),
-	).Exec()
+	).Suffix(objectUpsert).Exec()
 	if err != nil {
 		log.Println("Error inserting object metadata:", err)
 		return nil, err
