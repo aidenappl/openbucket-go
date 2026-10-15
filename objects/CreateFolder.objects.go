@@ -37,7 +37,7 @@ func CreateFolder(filePath string, key string, bucket types.Bucket, user types.A
 		time.Now(),
 		1,
 		0,
-	).Exec()
+	).Suffix(objectUpsert).Exec()
 	if err != nil {
 		log.Println("Error inserting object metadata:", err)
 		return fmt.Errorf("failed to create folder: %w", err)

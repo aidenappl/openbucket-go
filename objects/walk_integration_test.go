@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 func seedWalkBucket(t *testing.T) int {
 	t.Helper()
 	cleanup := func() {
+		db.DB.Exec(`DELETE FROM object_tags WHERE bucket_id IN (SELECT id FROM buckets WHERE name = $1)`, walkTestBucket)
 		db.DB.Exec(`DELETE FROM objects WHERE bucket_id IN (SELECT id FROM buckets WHERE name = $1)`, walkTestBucket)
 		db.DB.Exec(`DELETE FROM buckets WHERE name = $1`, walkTestBucket)
 		db.DB.Exec(`DELETE FROM authorizations WHERE key_id = $1`, walkTestBucket)

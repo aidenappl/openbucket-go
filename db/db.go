@@ -114,7 +114,71 @@ func RunMigrations() error {
 		}
 	}
 
+	if err := ensureUniqueObjectKeys(); err != nil {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
 	log.Println("database migrations complete")
+	return nil
+}
+
+// ensureUniqueObjectKeys keeps one metadata row per (bucket, key) — the most
+// recently modified, which describes the file on disk (the last write) — and
+// adds the unique index that objects' upsert relies on. A no-op once the index
+// exists.
+//
+// Uploads inserted a new row on every overwrite until October 2026, so
+// production buckets held repeated keys. One transaction, with writes to
+// objects blocked: a row inserted between the delete and the index build
+// would fail the build and stop the server from booting.
+func ensureUniqueObjectKeys() error {
+	var exists bool
+	if err := DB.QueryRow(`SELECT to_regclass('uniq_objects_bucket_key') IS NOT NULL`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// The removed rows and their tags are copied, not discarded:
+	// objects_superseded / object_tags_superseded can restore them.
+	steps := []string{
+		`LOCK TABLE objects IN SHARE ROW EXCLUSIVE MODE`,
+		`CREATE TABLE IF NOT EXISTS objects_superseded (LIKE objects)`,
+		`CREATE TABLE IF NOT EXISTS object_tags_superseded (LIKE object_tags)`,
+		`INSERT INTO objects_superseded
+			SELECT o.* FROM objects o
+			WHERE EXISTS (
+				SELECT 1 FROM objects n
+				WHERE n.bucket_id = o.bucket_id AND n.key = o.key
+				  AND (n.last_modified, n.id) > (o.last_modified, o.id)
+			)`,
+		`INSERT INTO object_tags_superseded
+			SELECT t.* FROM object_tags t WHERE t.object_id IN (SELECT id FROM objects_superseded)`,
+		`DELETE FROM object_tags WHERE object_id IN (SELECT id FROM objects_superseded)`,
+		`DELETE FROM objects WHERE id IN (SELECT id FROM objects_superseded)`,
+		`CREATE UNIQUE INDEX uniq_objects_bucket_key ON objects(bucket_id, key)`,
+	}
+	for _, s := range steps {
+		if _, err := tx.Exec(s); err != nil {
+			return err
+		}
+	}
+
+	var removed int
+	if err := tx.QueryRow(`SELECT count(*) FROM objects_superseded`).Scan(&removed); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	log.Printf("objects: moved %d superseded metadata rows to objects_superseded; keys are now unique per bucket", removed)
 	return nil
 }
 

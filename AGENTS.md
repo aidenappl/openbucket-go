@@ -89,6 +89,10 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   `(bucket_id, key COLLATE "C")` index one probe per entry; `listing.Paginate` cuts the page in
   both modes.
 - **Delete** is idempotent; deleting a folder marker removes only the marker.
+- **One row per key.** `CreateObject` / `CreateFolder` upsert (`objects/upsert.objects.go`) on the
+  unique index `uniq_objects_bucket_key`. Overwrites used to insert duplicate rows; the one-time
+  cleanup in `db.ensureUniqueObjectKeys` moved them to `objects_superseded` /
+  `object_tags_superseded` (kept for restore).
 
 ## Ecosystem & related repos
 
@@ -116,6 +120,8 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   is what keeps pages from losing or repeating keys.
 - Never call `objects.ListObjects` with `Keys: nil` meaning "these keys" — nil is "no filter".
 - Don't reintroduce `os.RemoveAll` for folder markers.
+- Never write to `objects` with a plain INSERT — use `objectUpsert`; a second row for a key now
+  fails on the unique index.
 - Deploying touches both production storage instances — ask first, and roll one stack at a time.
 
 ## Verification
