@@ -1,10 +1,12 @@
 package objects
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/listing"
 	"github.com/aidenappl/openbucket-go/types"
 )
@@ -102,26 +104,57 @@ func ListObjectsXML(bucket string, q url.Values) (*types.ObjectList, error) {
 
 // loadPage reads rows after `after` and cuts one page from them.
 //
-// With a delimiter many rows roll up into one common prefix, so rows can't be
-// bounded up front and everything under the prefix is read. Without one,
-// every row is at most one entry: rows are fetched in batches of max-keys+1
-// (the +1 shows whether more exist), and another batch is read whenever rows
-// were dropped by the exact-prefix or ignore filters and the page came up
-// short — otherwise such a page would claim to be the last.
-func loadPage(bucket, prefix, delimiter, after string, maxKeys int) (listing.Page, error) {
-	if delimiter != "" {
-		rows, err := ListObjects(bucket, &ListObjectsOptions{Prefix: prefix, StartAfter: after})
-		if err != nil {
-			return listing.Page{}, err
-		}
-		return listing.Paginate(rows, prefix, delimiter, after, maxKeys), nil
+// Both modes read in batches of max-keys+1 entries (the +1 shows whether more
+// exist), and read another batch whenever entries were dropped by the ignore
+// filter and the page came up short — otherwise such a page would claim to be
+// the last. listing.Paginate cuts the page either way, so both modes share its
+// tested semantics.
+//
+//   - With a delimiter, walkDelimited returns one key per entry (a common
+//     prefix is represented by its first key) by jumping over each prefix's
+//     contents in the index. It used to read every row under the prefix on
+//     every page: atlas/hotels/ (38,000 objects) took 2.2 s per request.
+//   - Without one, every row is one entry, read in key order.
+func loadPage(bucketName, prefix, delimiter, after string, maxKeys int) (listing.Page, error) {
+	b, err := bucket.GetBucket(bucketName, &bucket.GetBucketOptions{IncludeGrants: false})
+	if err != nil {
+		return listing.Page{}, fmt.Errorf("failed to get bucket %q: %w", bucketName, err)
+	}
+	if b == nil {
+		return listing.Page{}, fmt.Errorf("bucket %q not found", bucketName)
 	}
 
 	limit := maxKeys + 1
 	var rows []types.ObjectMetadata
 	cursor := after
+
+	if delimiter != "" {
+		for {
+			keys, err := walkDelimited(b.ID, prefix, delimiter, cursor, limit)
+			if err != nil {
+				return listing.Page{}, err
+			}
+			// ⚠️ Never call ListObjects with no keys: a nil Keys means "no key
+			// filter", and the whole bucket came back as duplicates.
+			if len(keys) > 0 {
+				batch, err := ListObjects(bucketName, &ListObjectsOptions{BucketID: b.ID, Keys: keys})
+				if err != nil {
+					return listing.Page{}, err
+				}
+				rows = append(rows, batch...)
+			}
+			page := listing.Paginate(rows, prefix, delimiter, after, maxKeys)
+			if page.Truncated || len(keys) < limit {
+				return page, nil
+			}
+			// Past the last entry walked; walkDelimited skips the whole
+			// common prefix when this key is inside one.
+			cursor = keys[len(keys)-1]
+		}
+	}
+
 	for {
-		batch, err := ListObjects(bucket, &ListObjectsOptions{Prefix: prefix, StartAfter: cursor, Limit: limit})
+		batch, err := ListObjects(bucketName, &ListObjectsOptions{BucketID: b.ID, Prefix: prefix, StartAfter: cursor, Limit: limit})
 		if err != nil {
 			return listing.Page{}, err
 		}

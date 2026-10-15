@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/aidenappl/openbucket-go/types"
 )
@@ -58,10 +59,11 @@ func Paginate(rows []types.ObjectMetadata, prefix, delimiter, after string, maxK
 		entry := key
 		isPrefix := false
 		if delimiter != "" {
+			// A key equal to the prefix (a folder marker, or the exact key
+			// `aws s3 ls s3://b/key` asks for) is a leaf, as in S3. It used
+			// to be skipped, so listing an exact key found nothing; clients
+			// that don't want the marker drop it themselves.
 			rest := key[len(prefix):]
-			if rest == "" {
-				continue // the folder placeholder for prefix itself
-			}
 			if i := strings.Index(rest, delimiter); i != -1 {
 				entry = prefix + rest[:i+len(delimiter)]
 				isPrefix = true
@@ -112,6 +114,48 @@ func DecodeToken(token string) (string, error) {
 		return "", ErrInvalidToken
 	}
 	return string(b), nil
+}
+
+// Successor returns the smallest string greater, in byte order, than every
+// string that starts with s — the exclusive upper bound of the key range
+// [s, Successor(s)) that holds exactly the keys with prefix s. ok is false
+// when there is no bound (s is empty, made only of U+10FFFF, or not valid
+// UTF-8 — which Postgres can't store anyway); callers then scan to the end.
+//
+// The last rune is incremented, not the last byte: UTF-8 byte order matches
+// code-point order, and a bumped byte could be invalid UTF-8, which Postgres
+// rejects as text. Surrogates are not valid runes, so U+D7FF steps to U+E000.
+func Successor(s string) (string, bool) {
+	for s != "" {
+		r, size := utf8.DecodeLastRuneInString(s)
+		s = s[:len(s)-size]
+		if r == utf8.RuneError && size <= 1 {
+			return "", false
+		}
+		if r == utf8.MaxRune {
+			continue
+		}
+		r++
+		if r == 0xD800 {
+			r = 0xE000
+		}
+		return s + string(r), true
+	}
+	return "", false
+}
+
+// GroupOf returns the common prefix key rolls up into under prefix and
+// delimiter ("a/b/c" under "a/" with "/" is "a/b/"), or ok false when key is
+// a leaf at this level.
+func GroupOf(key, prefix, delimiter string) (string, bool) {
+	if delimiter == "" || !strings.HasPrefix(key, prefix) {
+		return "", false
+	}
+	rest := key[len(prefix):]
+	if i := strings.Index(rest, delimiter); i != -1 {
+		return prefix + rest[:i+len(delimiter)], true
+	}
+	return "", false
 }
 
 // IsIgnored reports keys that are never listed.

@@ -100,6 +100,9 @@ func RunMigrations() error {
 
 		// Indexes
 		`CREATE INDEX IF NOT EXISTS idx_objects_bucket_key ON objects(bucket_id, key)`,
+		// Byte order: listings compare and sort keys COLLATE "C" (S3 order), and
+		// the delimited walk (objects/WalkObjects) probes this once per entry.
+		`CREATE INDEX IF NOT EXISTS idx_objects_bucket_key_c ON objects(bucket_id, key COLLATE "C")`,
 		`CREATE INDEX IF NOT EXISTS idx_object_tags_bucket_object ON object_tags(bucket_id, object_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_bucket_permissions_bucket_grantee ON bucket_permissions(bucket_id, grantee_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_bucket_tags_bucket ON bucket_tags(bucket_id)`,
