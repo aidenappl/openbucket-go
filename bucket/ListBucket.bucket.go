@@ -49,6 +49,9 @@ func ListBuckets(params *ListBucketsParams) (*[]types.Bucket, error) {
 	}
 
 	// Run the query
+	// Rows are read and closed before fetching grants: a second query while
+	// they're open holds two pooled connections per call (see the deadlock
+	// note in objects.GetObject).
 	rows, err := query.Query()
 	if err != nil {
 		log.Println("Error querying buckets:", err)
@@ -71,17 +74,22 @@ func ListBuckets(params *ListBucketsParams) (*[]types.Bucket, error) {
 			log.Println("Error scanning bucket:", err)
 			return nil, err
 		}
+		buckets = append(buckets, bucket)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
 
-		if params.Include != nil && params.Include.Grants {
-			grants, err := GetBucketGrants(bucket.Name)
+	if params.Include != nil && params.Include.Grants {
+		for i := range buckets {
+			grants, err := GetBucketGrants(buckets[i].Name)
 			if err != nil {
 				log.Println("Error getting bucket grants:", err)
 				return nil, err
 			}
-			bucket.Grants = grants
+			buckets[i].Grants = grants
 		}
-
-		buckets = append(buckets, bucket)
 	}
 
 	return &buckets, nil
