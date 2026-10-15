@@ -51,11 +51,17 @@ func GetObject(bucketName string, key string, etag *string, opts ...*GetObjectOp
 		query = query.Where(sq.Eq{"objects.etag": *etag})
 	}
 
+	// ⚠️ Read every row and close them BEFORE any other query. Tags used to be
+	// fetched inside this loop, holding this connection while asking the pool
+	// for a second: every object request (the permissions middleware calls
+	// this, CDN downloads included) needed two connections at once, so ~100
+	// concurrent requests took all 100 and waited on each other forever. On
+	// 2026-10-15 a burst of HEADs deadlocked cdn.trailblaze.to for ~15 hours.
+	// TestGetObjectUnderPoolPressure guards this.
 	rows, err := query.Query()
 	if err != nil {
 		return nil, fmt.Errorf("error querying object metadata: %w", err)
 	}
-	defer rows.Close()
 	var obj types.ObjectMetadata
 	var owner types.UserObject
 	for rows.Next() {
@@ -74,22 +80,27 @@ func GetObject(bucketName string, key string, etag *string, opts ...*GetObjectOp
 			&owner.ID,
 			&owner.DisplayName,
 		); err != nil {
+			rows.Close()
 			return nil, fmt.Errorf("error scanning object metadata: %w", err)
 		}
-
-		// Get object tags only if requested
-		if opt.IncludeTags {
-			tags, err := GetObjectTags(obj.BucketID, obj.ID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get object tags: %w", err)
-			}
-			obj.Tags.Tag = tags
-		}
 		obj.Owner = owner
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error reading object metadata: %w", err)
 	}
 
 	if obj.ID == 0 {
 		return nil, nil
+	}
+
+	// Tags only now, with the connection above back in the pool.
+	if opt.IncludeTags {
+		tags, err := GetObjectTags(obj.BucketID, obj.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get object tags: %w", err)
+		}
+		obj.Tags.Tag = tags
 	}
 
 	return &obj, nil

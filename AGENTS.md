@@ -120,6 +120,11 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   is what keeps pages from losing or repeating keys.
 - Never call `objects.ListObjects` with `Keys: nil` meaning "these keys" — nil is "no filter".
 - Don't reintroduce `os.RemoveAll` for folder markers.
+- **Never run a query while a `*sql.Rows` is open.** Read all rows, close them, then query
+  again. `GetObject` fetched tags inside its rows loop, so every object request needed two pooled
+  connections at once; ~100 concurrent requests deadlocked the pool permanently and
+  cdn.trailblaze.to hung for ~15 hours (2026-10-15). `TestGetObjectUnderPoolPressure` (2-connection
+  pool, 20 concurrent calls) guards it.
 - Never write to `objects` with a plain INSERT — use `objectUpsert`; a second row for a key now
   fails on the unique index.
 - Deploying touches both production storage instances — ask first, and roll one stack at a time.
