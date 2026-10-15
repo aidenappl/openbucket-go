@@ -6,15 +6,17 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/aidenappl/openbucket-go/bucket"
 	"github.com/aidenappl/openbucket-go/db"
+	"github.com/aidenappl/openbucket-go/listing"
 	"github.com/aidenappl/openbucket-go/types"
 )
 
 // ListObjectsOptions configures the ListObjects query
 type ListObjectsOptions struct {
-	BucketID   int    // If provided, skips bucket lookup
-	Prefix     string // SQL LIKE prefix filter
-	StartAfter string // For pagination: only return keys > this value
-	Limit      int    // Max rows to return (0 = unlimited)
+	BucketID   int      // If provided, skips bucket lookup
+	Prefix     string   // Only keys starting with this (exact, byte-wise)
+	StartAfter string   // For pagination: only return keys > this value
+	Limit      int      // Max rows to return (0 = unlimited)
+	Keys       []string // Only these keys (non-nil and empty = none)
 }
 
 func ListObjects(bucketName string, opts ...*ListObjectsOptions) ([]types.ObjectMetadata, error) {
@@ -63,7 +65,18 @@ func ListObjects(bucketName string, opts ...*ListObjectsOptions) ([]types.Object
 	if len(opts) > 0 && opts[0] != nil {
 		o := opts[0]
 		if o.Prefix != "" {
-			query = query.Where("objects.key LIKE ?", o.Prefix+"%")
+			// A byte range, not LIKE: it uses idx_objects_bucket_key_c, and it
+			// is exact (LIKE treats `_` and `%` as wildcards).
+			query = query.Where(`objects.key COLLATE "C" >= ?`, o.Prefix)
+			if end, ok := listing.Successor(o.Prefix); ok {
+				query = query.Where(`objects.key COLLATE "C" < ?`, end)
+			}
+		}
+		if o.Keys != nil {
+			if len(o.Keys) == 0 {
+				return nil, nil
+			}
+			query = query.Where(sq.Eq{"objects.key": o.Keys})
 		}
 		if o.StartAfter != "" {
 			query = query.Where(`objects.key COLLATE "C" > ?`, o.StartAfter)

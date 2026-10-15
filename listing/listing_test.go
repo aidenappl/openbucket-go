@@ -86,9 +86,10 @@ func TestPageListingSinglePage(t *testing.T) {
 		want                []string
 	}{
 		{"root with delimiter", "", "/", []string{"a-b/", "a.txt", "a/", "a0.txt", "b/", "blog-posts/", "blogXposts/", "blog_posts/", "c.txt"}},
-		{"under a/ with delimiter", "a/", "/", []string{"a/1.txt", "a/2.txt", "a/b/", "a/c.txt", "a/z/"}},
-		{"under a/b/ with delimiter", "a/b/", "/", []string{"a/b/c.txt", "a/b/d/"}},
-		{"underscore is literal, not a wildcard", "blog_posts/", "/", []string{"blog_posts/banner/", "blog_posts/readme.md"}},
+		{"under a/ with delimiter", "a/", "/", []string{"a/", "a/1.txt", "a/2.txt", "a/b/", "a/c.txt", "a/z/"}},
+		{"under a/b/ with delimiter", "a/b/", "/", []string{"a/b/", "a/b/c.txt", "a/b/d/"}},
+		{"underscore is literal, not a wildcard", "blog_posts/", "/", []string{"blog_posts/", "blog_posts/banner/", "blog_posts/readme.md"}},
+		{"an exact key as the prefix lists that key", "a.txt", "/", []string{"a.txt"}},
 		{"recursive under a/", "a/", "", []string{"a/", "a/1.txt", "a/2.txt", "a/b/", "a/b/c.txt", "a/b/d/e.txt", "a/c.txt", "a/z/deep/file.txt"}},
 	}
 	for _, tt := range tests {
@@ -167,6 +168,63 @@ func TestContinuationTokenRejectsGarbage(t *testing.T) {
 	for _, tok := range []string{"!!!", "=", ""} {
 		if _, err := DecodeToken(tok); err == nil {
 			t.Fatalf("token %q should be rejected", tok)
+		}
+	}
+}
+
+func TestSuccessorBoundsThePrefixRange(t *testing.T) {
+	tests := []struct {
+		in, want string
+		ok       bool
+	}{
+		{"a/", "a0", true},
+		{"hotels/250/", "hotels/2500", true},
+		{"/", "0", true},
+		{"z", "{", true},
+		{"é", "ê", true},
+		{"a\U0010FFFF", "b", true},
+		{"\uD7FF", "\uE000", true},
+		{"", "", false},
+		{"\U0010FFFF", "", false},
+		{"a\xff", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got, ok := Successor(tt.in)
+			if got != tt.want || ok != tt.ok {
+				t.Fatalf("Successor(%q) = %q, %v; want %q, %v", tt.in, got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+
+	// Every key with the prefix sorts below the bound; the first key past
+	// the prefix range does not.
+	for _, p := range []string{"a/", "a", "blog_posts/", "a/b/"} {
+		end, _ := Successor(p)
+		for _, k := range testKeys {
+			if strings.HasPrefix(k, p) != (k >= p && k < end) {
+				t.Errorf("prefix %q bound %q misclassifies %q", p, end, k)
+			}
+		}
+	}
+}
+
+func TestGroupOf(t *testing.T) {
+	tests := []struct {
+		key, prefix, delim, want string
+		ok                       bool
+	}{
+		{"a/b/c.txt", "a/", "/", "a/b/", true},
+		{"a/c.txt", "a/", "/", "", false},
+		{"a/b/", "a/", "/", "a/b/", true},
+		{"a/b/c.txt", "", "/", "a/", true},
+		{"a/b/c.txt", "x/", "/", "", false},
+		{"a/b/c.txt", "a/", "", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := GroupOf(tt.key, tt.prefix, tt.delim)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("GroupOf(%q, %q, %q) = %q, %v; want %q, %v", tt.key, tt.prefix, tt.delim, got, ok, tt.want, tt.ok)
 		}
 	}
 }
