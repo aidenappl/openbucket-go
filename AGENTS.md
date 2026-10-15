@@ -120,6 +120,14 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   is what keeps pages from losing or repeating keys.
 - Never call `objects.ListObjects` with `Keys: nil` meaning "these keys" — nil is "no filter".
 - Don't reintroduce `os.RemoveAll` for folder markers.
+- **Every query has a deadline.** `db.Psql` runs through `db.Timed` (`QueryTimeout`, 30 s: pool
+  acquire + statement + reading rows); raw SQL uses `db.Timed` too, never bare `db.DB` (migrations
+  excepted). `database/sql` otherwise waits for a pooled connection forever — how the 2026-10-15
+  outage hung the whole server (#33).
+- **Health:** `GET /_health` (unauthenticated, not logged) is 200 only when a pooled DB connection
+  works within 2 s — `db.Healthy`, which enforces the 2 s itself because lib/pq's cancellation
+  blocks on a frozen database. `openbucket healthcheck` exits 0/1 on it, for a container
+  `HEALTHCHECK` (the image has no curl/wget). openbucket-api probes it and reports to Monitor.
 - **Never run a query while a `*sql.Rows` is open.** Read all rows, close them, then query
   again. `GetObject` fetched tags inside its rows loop, so every object request needed two pooled
   connections at once; ~100 concurrent requests deadlocked the pool permanently and

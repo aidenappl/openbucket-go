@@ -83,7 +83,7 @@ func walkDelimited(bucketID int, prefix, delimiter, after string, limit int) ([]
 		prefixEnd = &end
 	}
 
-	rows, err := db.DB.Query(walkQuery,
+	rows, err := db.Timed.Query(walkQuery,
 		bucketID, after, from, prefix, prefixEnd,
 		utf8.RuneCountInString(prefix), delimiter, delimEnd, limit)
 	if err != nil {
