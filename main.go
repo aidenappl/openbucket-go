@@ -80,19 +80,21 @@ func startServer() {
 	r.HandleFunc("/{bucket}", middleware.HalfAuthorized(routers.HandleBucketHead)).Methods(http.MethodHead)
 	r.HandleFunc("/{bucket}", middleware.Authorized(routers.HandleDeleteBucket)).Methods(http.MethodDelete)
 
-	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDownload)).Methods(http.MethodGet)
+	// Object downloads and uploads get long deadlines (middleware.LongTransfer).
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.LongTransfer(middleware.Authorized(routers.HandleDownload))).Methods(http.MethodGet)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleHeadObject)).Methods(http.MethodHead)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
-	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUpload)).Methods(http.MethodPut)
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.LongTransfer(middleware.Authorized(routers.HandleUpload))).Methods(http.MethodPut)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUploadModification)).Methods(http.MethodPost)
 
-	// Start the server with timeouts to prevent goroutine/connection accumulation
+	// Read/write deadlines are per request (middleware.Deadlines; object
+	// transfers extended by LongTransfer). Server-wide ReadTimeout/WriteTimeout
+	// cut every download off at 60 s and every upload at 15 s.
 	server := &http.Server{
-		Addr:         ":" + env.Port,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              ":" + env.Port,
+		Handler:           middleware.Deadlines(r),
+		ReadHeaderTimeout: 15 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	log.Println("✅ Server started at http://localhost:" + env.Port)
