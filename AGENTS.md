@@ -124,6 +124,10 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   acquire + statement + reading rows); raw SQL uses `db.Timed` too, never bare `db.DB` (migrations
   excepted). `database/sql` otherwise waits for a pooled connection forever — how the 2026-10-15
   outage hung the whole server (#33).
+- **Deadlines are per request**, not server-wide: `middleware.Deadlines` (30 s read / 60 s write)
+  wraps the router, and object downloads/uploads (`GET`/`PUT /{bucket}/{key}`) get
+  `middleware.LongTransfer` (2 h). The server keeps only `ReadHeaderTimeout`. Server-wide
+  timeouts cut every CDN download off at 60 s (a 60 MB file at 700 KB/s stopped at 45 MB).
 - **Health:** `GET /_health` (unauthenticated, not logged) is 200 only when a pooled DB connection
   works within 2 s — `db.Healthy`, which enforces the 2 s itself because lib/pq's cancellation
   blocks on a frozen database. `openbucket healthcheck` exits 0/1 on it, for a container
