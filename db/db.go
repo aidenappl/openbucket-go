@@ -197,7 +197,8 @@ var DB = func() *sql.DB {
 	return db
 }()
 
-var Psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar).RunWith(DB)
+// Every query built with Psql runs under QueryTimeout (see timed.go).
+var Psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar).RunWith(Timed)
 
 var ErrNoRows = sql.ErrNoRows
 

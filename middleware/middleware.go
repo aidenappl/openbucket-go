@@ -9,6 +9,10 @@ import (
 
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/_health" {
+			next.ServeHTTP(w, r) // probed every few seconds; not worth a log line
+			return
+		}
 		request := GetRequestID(r)
 		host := GetHostID(r)
 		log.Println(r.Method, r.RequestURI, fmt.Sprintf("|| Request ID: %s", request), fmt.Sprintf("Host: %s", host))
