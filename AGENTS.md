@@ -127,7 +127,9 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
 - **Health:** `GET /_health` (unauthenticated, not logged) is 200 only when a pooled DB connection
   works within 2 s — `db.Healthy`, which enforces the 2 s itself because lib/pq's cancellation
   blocks on a frozen database. `openbucket healthcheck` exits 0/1 on it, for a container
-  `HEALTHCHECK` (the image has no curl/wget). openbucket-api probes it and reports to Monitor.
+  `HEALTHCHECK` (the image has no curl/wget) — the Dockerfile's HEALTHCHECK (every 15 s, 3
+  failures) uses it, so Lattice health-gates deploys on it and flags a hung server (it does not
+  restart it). openbucket-api probes it and reports to Monitor.
 - **Never run a query while a `*sql.Rows` is open.** Read all rows, close them, then query
   again. `GetObject` fetched tags inside its rows loop, so every object request needed two pooled
   connections at once; ~100 concurrent requests deadlocked the pool permanently and
