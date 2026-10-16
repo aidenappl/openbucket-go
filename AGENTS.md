@@ -148,6 +148,8 @@ go test ./listing ./responder ./types
 go test -tags integration ./objects   # when touching objects/, listing/ or db/
 ```
 
+Incident write-ups live in `docs/postmortems/` (2026-10-15: pool deadlock, cdn.trailblaze.to down 15 h).
+
 ## Keeping this file updated
 
 Any change to structure, stack, commands, conventions, routes, schema or S3 behaviour updates this
