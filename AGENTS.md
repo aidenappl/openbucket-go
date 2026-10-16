@@ -88,6 +88,11 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   / start-after), at most 1000 entries a page. With a delimiter, `WalkObjects` walks the
   `(bucket_id, key COLLATE "C")` index one probe per entry; `listing.Paginate` cuts the page in
   both modes.
+- **CopyObject** (`handler/HandleCopyObject.handle.go`) follows S3: an existing destination is
+  overwritten (it used to be refused, #23); a folder marker (`a/`) copies to a folder marker and
+  only to a key ending in `/` (reading the marker's directory failed, #22 — which broke every
+  folder rename); copying a key onto itself is refused unless `x-amz-metadata-directive: REPLACE`,
+  and never reaches the file copy (that would truncate the file while reading it).
 - **Delete** is idempotent; deleting a folder marker removes only the marker.
 - **One row per key.** `CreateObject` / `CreateFolder` upsert (`objects/upsert.objects.go`) on the
   unique index `uniq_objects_bucket_key`. Overwrites used to insert duplicate rows; the one-time
