@@ -114,7 +114,7 @@ func IsBucketACL(acl Permission) bool {
 
 // ConvertToBucketACL converts a Permission to a bucket ACL.
 func ConvertToBucketACL(acl string) Permission {
-	switch acl {
+	switch normalizeACL(acl) {
 	case "private":
 		return BUCKET_ACLPrivate
 	case "public-read":
@@ -128,10 +128,16 @@ func ConvertToBucketACL(acl string) Permission {
 	}
 }
 
+// normalizeACL accepts the S3 header spelling ("full-control", "public-read")
+// and the enum spelling the admin UI and CLI send ("FULL_CONTROL",
+// "PUBLIC_READ"): lowercase, underscores as hyphens.
+func normalizeACL(s string) string {
+	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), "_", "-")
+}
+
 // ConvertToPermission converts a string to a Permission.
 func ConvertToPermission(perm string) Permission {
-	perm = strings.ToLower(perm) // Normalize to lowercase
-	switch perm {
+	switch normalizeACL(perm) {
 	case "read":
 		return READ
 	case "write":
