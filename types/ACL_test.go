@@ -16,6 +16,10 @@ func TestConvertToPermission(t *testing.T) {
 		{"write-acp", WRITE_ACP},
 		{"full-control", FULL_CONTROL},
 		{"FULL-CONTROL", FULL_CONTROL},
+		// The admin UI and CLI send the enum spelling.
+		{"FULL_CONTROL", FULL_CONTROL},
+		{"READ_ACP", READ_ACP},
+		{"write_acp", WRITE_ACP},
 		{"garbage", ACLUnknown},
 		{"", ACLUnknown},
 	}
@@ -40,7 +44,7 @@ func TestConvertToBucketACL(t *testing.T) {
 		{"public-read-write", BUCKET_ACLPublicReadWrite},
 		{"public-write", BUCKET_ACLPublicWrite},
 		{"garbage", ACLUnknown},
-		{"PRIVATE", ACLUnknown}, // case-sensitive
+		{"PRIVATE", BUCKET_ACLPrivate}, // the admin UI sends the enum spelling
 		{"", ACLUnknown},
 	}
 
@@ -184,5 +188,27 @@ func TestIsBucketACLReadWrite(t *testing.T) {
 	}
 	if IsBucketACLWrite(BUCKET_ACLPrivate) {
 		t.Error("expected IsBucketACLWrite(PRIVATE) = false")
+	}
+}
+
+func TestConvertToBucketACLSpellings(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Permission
+	}{
+		{"private", BUCKET_ACLPrivate},
+		{"PRIVATE", BUCKET_ACLPrivate},
+		{"public-read", BUCKET_ACLPublicRead},
+		{"PUBLIC_READ", BUCKET_ACLPublicRead},
+		{"PUBLIC_READ_WRITE", BUCKET_ACLPublicReadWrite},
+		{"public_write", BUCKET_ACLPublicWrite},
+		{"nope", ACLUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := ConvertToBucketACL(tt.input); got != tt.want {
+				t.Errorf("ConvertToBucketACL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
 	}
 }

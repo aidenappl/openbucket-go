@@ -221,7 +221,7 @@ func HandleAdminUpdateBucketACL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	aclType := types.ConvertToBucketACL(req.ACL)
-	if aclType == "" {
+	if aclType == types.ACLUnknown {
 		responder.SendJSONError(w, http.StatusBadRequest, "invalid ACL type")
 		return
 	}
