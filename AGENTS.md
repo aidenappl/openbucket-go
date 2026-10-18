@@ -125,14 +125,20 @@ one-off requests.
 ## Operations
 
 - One image, `registry.appleby.cloud/openbucket:latest`, built by
-  `.github/workflows/push-to-registry.yml` on push to `main`. **CI does not deploy.**
+  `.github/workflows/push-to-registry.yml` on push to `main`. Its `deploy` job then fires the Lattice
+  automation **"Redeploy OpenBucket"** (id 2) through the `LATTICE_DEPLOY_URL` secret, which
+  redeploys `hillview-openbucket`, `aplb-openbucket`, `trailblaze-openbucket` in that order. The
+  automation is the instance list: a new instance is a new step there, not a workflow change.
+  The job requires `data.result == "succeeded"` (a disabled automation answers 200 with
+  `disabled`). A green run means Lattice accepted the redeploys, not that they landed: no step
+  waits for its container, so check `lattice_list_automation_runs` and each instance.
 - Three production instances, each its own Lattice stack (server + `postgres:16` with the
   `db_data` volume, files at `/opt/openbucket/buckets`):
   - **stack 24** "APLB OpenBucket Core" — `aplb-openbucket`, `cdn.appleby.cloud` (Atlas, APLB)
   - **stack 26** "Trailblaze OpenBucket Core" — `trailblaze-openbucket`, `cdn.trailblaze.to`
   - **stack 42** "Hillview OpenBucket" — `hillview-openbucket`, `cdn.hillview.tv`
-- Deploy = `lattice_deploy_stack` (rolling) per stack, APLB first, then Trailblaze, then Hillview,
-  verifying listings and a public CDN object after each. Logs: `lattice_get_container_logs`.
+- Manual deploy (CI down, or one instance only) = `lattice_deploy_stack` (rolling) per stack, or
+  `lattice_run_automation` id 2 for all three, verifying listings and a public CDN object after each. Logs: `lattice_get_container_logs`.
 - **ETag backfill.** Objects uploaded before the content-MD5 fix keep their old
   `md5(path + content)` ETags, so integrity-checking clients still reject them until they are
   recomputed. After deploying the fix, run once per instance, inside the server container (its
@@ -172,7 +178,8 @@ one-off requests.
   pool, 20 concurrent calls) guards it.
 - Never write to `objects` with a plain INSERT — use `objectUpsert`; a second row for a key now
   fails on the unique index.
-- Deploying touches both production storage instances — ask first, and roll one stack at a time.
+- Merging to `main` redeploys all three production storage instances within seconds of each
+  other. Treat a merge as a deploy: ask first. Manual deploys roll one stack at a time.
 
 ## Verification
 
