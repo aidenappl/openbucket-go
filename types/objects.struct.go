@@ -36,6 +36,12 @@ func (e ETag) ToString() string {
 	return string(e)
 }
 
+// Quoted is the ETag as S3 sends it in an ETag header: `"<md5>"`. The
+// database stores it unquoted.
+func (e ETag) Quoted() string {
+	return `"` + string(e) + `"`
+}
+
 func (e ETag) Value() (driver.Value, error) { // for DB insert
 	return string(e), nil
 }

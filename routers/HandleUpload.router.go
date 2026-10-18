@@ -1,7 +1,10 @@
 package routers
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -306,6 +309,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 			log.Println("Error creating directory object:", err)
 			return
 		}
+		w.Header().Set("ETag", tools.ETagOf(nil).Quoted())
 		w.WriteHeader(http.StatusOK)
 		log.Println("Directory created:", filePath)
 		return
@@ -337,14 +341,30 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Content-MD5 (base64 of the binary MD5): S3 refuses a body that doesn't match
+	var wantMD5 []byte
+	if v := r.Header.Get("Content-MD5"); v != "" {
+		sum, err := base64.StdEncoding.DecodeString(v)
+		if err != nil || len(sum) != md5.Size {
+			responder.SendXMLError(w, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified was invalid.", requestId, hostId)
+			return
+		}
+		wantMD5 = sum
+	}
+
 	// Create File
-	eTag, err := objects.CreateObject(filePath, key, *bucketObj, r.Body, nil, user, &public)
+	eTag, err := objects.CreateObjectVerified(filePath, key, *bucketObj, r.Body, nil, user, &public, wantMD5)
+	if errors.Is(err, objects.ErrBadDigest) {
+		responder.SendXMLError(w, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.", requestId, hostId)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Failed to create object", http.StatusInternalServerError)
 		log.Println("Error creating object:", err)
 		return
 	}
 
+	w.Header().Set("ETag", eTag.Quoted())
 	w.WriteHeader(http.StatusOK)
 	log.Println("File uploaded successfully. ETag:", *eTag)
 }

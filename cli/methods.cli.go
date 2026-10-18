@@ -185,3 +185,20 @@ func listCredentials(cmd *cobra.Command, args []string) {
 	}
 	table.Render()
 }
+
+func backfillETags(cmd *cobra.Command, args []string) error {
+	bucketName, _ := cmd.Flags().GetString("bucket")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	res, err := objects.BackfillETags(bucketName, dryRun)
+	if res != nil {
+		verb := "updated"
+		if dryRun {
+			verb = "would update"
+		}
+		fmt.Printf("scanned %d, %s %d, unchanged %d, missing on disk %d\n", res.Scanned, verb, res.Updated, res.Unchanged, len(res.Missing))
+		for _, m := range res.Missing {
+			fmt.Println("  missing:", m)
+		}
+	}
+	return err
+}
