@@ -98,8 +98,57 @@ jobs:
             exit 1
           done
 
-      - name: Upload docker-compose stack definition
-        uses: actions/upload-artifact@v7
-        with:
-          name: openbucket-stack
-          path: openbucket-container/docker-compose.yml
+
+  # Redeploys every OpenBucket instance by firing ONE Lattice automation,
+  # "Redeploy OpenBucket" (automation id 2): hillview-openbucket (stack 42),
+  # aplb-openbucket (24), trailblaze-openbucket (26), in that order. A deploy
+  # token reaches one stack only; the automation is the instance list, so a new
+  # instance is a new step there, not a change here. Same contract as
+  # monitor-core's deploy job.
+  #
+  # A GREEN RUN MEANS LATTICE ACCEPTED THE REDEPLOYS, NOT THAT THEY LANDED. No
+  # step waits for its container. Check the automation's run history
+  # (lattice_list_automation_runs) or each instance's logs.
+  deploy:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, lattice-worker]
+    # The automation refuses a firing while its previous run holds the run
+    # guard (409) instead of queueing it, so queue overlapping deploys here.
+    concurrency:
+      group: openbucket-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Fire the Lattice automation
+        env:
+          DEPLOY_URL: ${{ secrets.LATTICE_DEPLOY_URL }}
+        run: |
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error title=No deploy credential::LATTICE_DEPLOY_URL is not set. It must hold the webhook URL of the Lattice automation \"Redeploy OpenBucket\"."
+            exit 1
+          fi
+
+          # Synchronous: Lattice runs every step before it answers (50s run
+          # budget under its 60s write timeout).
+          HTTP=$(curl -sS -X POST "$DEPLOY_URL?commit=${{ github.sha }}" \
+            --max-time 75 -o response.json -w '%{http_code}') || {
+            echo "::error title=Lattice unreachable::The automation webhook did not answer (curl exit $?)."
+            exit 1
+          }
+
+          RESULT=$(jq -r '.data.result // empty' response.json 2>/dev/null || true)
+          MESSAGE=$(jq -r '[.message, .error, .error_message] | map(select(. != null and . != "")) | unique | join(" — ")' response.json 2>/dev/null || true)
+          jq -r '.data.run.steps[]? | "  \(.type) → \(.status): \(.summary)\(if .error then " (\(.error))" else "" end)"' response.json 2>/dev/null || true
+
+          # HTTP 200 IS NOT SUCCESS: a disabled automation answers 200 with
+          # result "disabled" and runs nothing. 409 = skipped, 424 = failed.
+          if [ "$HTTP" = "200" ] && [ "$RESULT" = "succeeded" ]; then
+            echo "Lattice: $MESSAGE"
+            echo "- 🚀 Lattice: $MESSAGE" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          DETAIL=${MESSAGE:-"no JSON body. Check that LATTICE_DEPLOY_URL is the automation's webhook URL rather than its dashboard page."}
+          echo "::error title=Automation did not succeed::HTTP $HTTP, result '${RESULT:-none}': $DETAIL"
+          echo "- ❌ Lattice: HTTP $HTTP, result \`${RESULT:-none}\` — $DETAIL" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
