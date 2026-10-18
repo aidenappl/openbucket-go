@@ -115,6 +115,19 @@ func SetupCLI() {
 	importBucketCmd.Flags().StringP("name", "n", "", "override the bucket name (default: use name from archive)")
 	rootCmd.AddCommand(importBucketCmd)
 
+	// `openbucket backfill-etags [--bucket name] [--dry-run]`
+	// Recompute stored ETags as the MD5 of each file (pre-2026-10-18 ETags hashed the path too).
+	var backfillETagsCmd = &cobra.Command{
+		Use:   "backfill-etags",
+		Short: "Recompute every object's ETag as the MD5 of its file on disk",
+		Long:  "Rewrites ETags stored under the old md5(path + content) scheme to S3's content MD5. Run from the server's working directory (the one holding buckets/). Only the etag column changes.",
+		Args:  cobra.NoArgs,
+		RunE:  backfillETags,
+	}
+	backfillETagsCmd.Flags().StringP("bucket", "b", "", "only this bucket (default: all)")
+	backfillETagsCmd.Flags().Bool("dry-run", false, "report what would change without writing")
+	rootCmd.AddCommand(backfillETagsCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		log.Println("Error executing CLI command:", err)
 		os.Exit(1)

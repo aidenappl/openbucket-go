@@ -97,11 +97,14 @@ aws configure
 
 The CLI functions are for "root" level commands that are inaccessible from the s3api (especially given this is not IAM connected)
 
-Right now this is extremely limited with the only support command being 
+Run `./openbucket --help` for the full list. Among them:
 
 ```
 generate-credentials
+backfill-etags [--bucket name] [--dry-run]   # recompute ETags stored before the content-MD5 fix
 ```
+
+ETags are the MD5 of the object's bytes, as in S3, so clients such as rclone and the AWS CLI can verify transfers. A `Content-MD5` header on PUT is checked (`400 BadDigest` on mismatch). Multipart upload is not supported yet.
 
 ---
 

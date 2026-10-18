@@ -35,8 +35,8 @@ handler/             credential generation, grants, CopyObject
 routers/             HTTP handlers (S3 + admin)
 middleware/          RequestState (request/host ids), logging, AdminAuth, Authorized/HalfAuthorized
 responder/           XML (S3) and JSON (admin) responses
-tools/, util/        ETags, content types, ACL strings, path validation
-cli/                 CLI commands (setup, backup, …)
+tools/, util/        ETags (content MD5), content types, ACL strings, path validation
+cli/                 CLI commands (setup, backup, backfill-etags, …)
 types/               S3 XML structs and metadata types
 init.sql             reference DDL (RunMigrations is the source of truth)
 ```
@@ -46,7 +46,7 @@ init.sql             reference DDL (RunMigrations is the source of truth)
 ```bash
 dev up                 # docker compose: Postgres + server (localhost:8080)
 dev build | dev test | dev vet | dev check
-go test ./listing ./responder ./types                 # unit tests, no env needed
+go test ./listing ./responder ./types ./tools         # unit tests, no env needed
 go test -tags integration ./objects                   # needs a Postgres, see below
 go test -tags integration ./objects -run '^$' -bench DelimitedPage
 ```
@@ -66,7 +66,10 @@ DATABASE='postgres://openbucket:openbucket@localhost:55433/openbucket?sslmode=di
 
 End-to-end S3 checks: run the binary against that DB, create a credential and bucket, grant
 `FULL_CONTROL` (owners need an explicit grant), and use the AWS CLI with
-`--endpoint-url http://localhost:8080` and region `openbucket`.
+`--endpoint-url http://localhost:8080` and region `openbucket` — or rclone (`type=s3`,
+`provider=Other`, `force_path_style=true`, region `openbucket`): `rclone copy` then
+`rclone check` proves the ETags verify; `curl --aws-sigv4 "aws:amz:openbucket:s3"` works for
+one-off requests.
 
 ## How code is written here
 
@@ -93,6 +96,18 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
   only to a key ending in `/` (reading the marker's directory failed, #22 — which broke every
   folder rename); copying a key onto itself is refused unless `x-amz-metadata-directive: REPLACE`,
   and never reaches the file copy (that would truncate the file while reading it).
+- **ETags are the hex MD5 of the object's bytes**, as S3 does for a single-part PUT
+  (`tools/GenerateETag.tool.go`). The database stores them unquoted; every response quotes them —
+  XML via `ETag.MarshalXML`, headers (PUT, HEAD, GET) via `ETag.Quoted()`. A folder marker's ETag
+  is the MD5 of zero bytes. Two keys with identical bytes share an ETag, so **never treat an ETag
+  as unique** (key + ETag is fine). They used to be `md5(filePath + content)`: rclone copying
+  from AWS into cdn.hillview.tv flagged every object as corrupted (2026-10-18).
+- **Content-MD5** on PUT is verified: a malformed header is `400 InvalidDigest`, a mismatch
+  `400 BadDigest`. `CreateObject` writes to a temp file (`.upload-*`, same directory) and renames
+  it into place, so a refused or failed upload never replaces the stored object.
+- **Multipart upload is not implemented** (`501 NotImplemented`); clients must use single-part
+  PUTs (rclone: a large `--s3-upload-cutoff`). When it is added, the completed object's ETag must
+  be S3's form, `"<md5 of the concatenated binary part MD5s>-<part count>"`.
 - **Delete** is idempotent; deleting a folder marker removes only the marker.
 - **One row per key.** `CreateObject` / `CreateFolder` upsert (`objects/upsert.objects.go`) on the
   unique index `uniq_objects_bucket_key`. Overwrites used to insert duplicate rows; the one-time
@@ -111,12 +126,23 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
 
 - One image, `registry.appleby.cloud/openbucket:latest`, built by
   `.github/workflows/push-to-registry.yml` on push to `main`. **CI does not deploy.**
-- Two production instances, each its own Lattice stack (server + `postgres:16` with the `db_data`
-  volume, files at `/opt/openbucket/buckets`):
+- Three production instances, each its own Lattice stack (server + `postgres:16` with the
+  `db_data` volume, files at `/opt/openbucket/buckets`):
   - **stack 24** "APLB OpenBucket Core" — `aplb-openbucket`, `cdn.appleby.cloud` (Atlas, APLB)
   - **stack 26** "Trailblaze OpenBucket Core" — `trailblaze-openbucket`, `cdn.trailblaze.to`
-- Deploy = `lattice_deploy_stack` (rolling) per stack, APLB first, then Trailblaze, verifying
-  listings and a public CDN object after each. Logs: `lattice_get_container_logs`.
+  - **stack 42** "Hillview OpenBucket" — `hillview-openbucket`, `cdn.hillview.tv`
+- Deploy = `lattice_deploy_stack` (rolling) per stack, APLB first, then Trailblaze, then Hillview,
+  verifying listings and a public CDN object after each. Logs: `lattice_get_container_logs`.
+- **ETag backfill.** Objects uploaded before the content-MD5 fix keep their old
+  `md5(path + content)` ETags, so integrity-checking clients still reject them until they are
+  recomputed. After deploying the fix, run once per instance, inside the server container (its
+  working directory, `/app`, holds `buckets/`):
+  ```bash
+  ./openbucket backfill-etags --dry-run         # counts: scanned / would update / unchanged / missing
+  ./openbucket backfill-etags [--bucket name]   # rewrites only the etag column; idempotent
+  ```
+  It reads every file once (I/O-heavy on a large instance), skips and lists rows with no file on
+  disk, and leaves `last_modified` alone. Not yet run on any instance as of 2026-10-18.
 - Migrations run on every boot (`db.RunMigrations`, `IF NOT EXISTS`).
 
 ## Rules & guardrails
@@ -153,7 +179,7 @@ End-to-end S3 checks: run the binary against that DB, create a credential and bu
 ```bash
 gofmt -l .            # must print nothing for files you touched
 go build ./... && go vet ./...
-go test ./listing ./responder ./types
+go test ./listing ./responder ./types ./tools
 go test -tags integration ./objects   # when touching objects/, listing/ or db/
 ```
 

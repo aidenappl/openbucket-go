@@ -272,7 +272,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 
 	// Structure response headers
 	if metadata != nil {
-		w.Header().Set("ETag", metadata.ETag.ToString())
+		w.Header().Set("ETag", metadata.ETag.Quoted())
 		w.Header().Set("x-amz-meta-owner-id", metadata.Owner.ID)
 		w.Header().Set("x-amz-meta-owner-display-name", metadata.Owner.DisplayName)
 		w.Header().Set("x-amz-meta-acl", tools.ACLString(metadata.Public))
