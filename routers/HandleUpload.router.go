@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aidenappl/openbucket-go/aws"
 	"github.com/aidenappl/openbucket-go/handler"
 	"github.com/aidenappl/openbucket-go/middleware"
 	"github.com/aidenappl/openbucket-go/objects"
@@ -352,8 +354,24 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		wantMD5 = sum
 	}
 
+	// SDK v2 clients send aws-chunked bodies by default (trailing checksums);
+	// store the decoded bytes, never the chunk framing.
+	var body io.Reader = r.Body
+	if aws.IsAWSChunked(r) {
+		body = aws.NewChunkedReader(r)
+	}
+
 	// Create File
-	eTag, err := objects.CreateObjectVerified(filePath, key, *bucketObj, r.Body, nil, user, &public, wantMD5)
+	eTag, err := objects.CreateObjectVerified(filePath, key, *bucketObj, body, nil, user, &public, wantMD5)
+	if errors.Is(err, aws.ErrChunkedChecksum) {
+		responder.SendXMLError(w, http.StatusBadRequest, "BadDigest", "The trailing checksum you specified did not match what we received.", requestId, hostId)
+		return
+	}
+	if errors.Is(err, aws.ErrChunkedFraming) || errors.Is(err, aws.ErrChunkedLength) {
+		responder.SendXMLError(w, http.StatusBadRequest, "IncompleteBody", "The aws-chunked request body was malformed or incomplete.", requestId, hostId)
+		log.Println("Rejected aws-chunked upload:", err)
+		return
+	}
 	if errors.Is(err, objects.ErrBadDigest) {
 		responder.SendXMLError(w, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.", requestId, hostId)
 		return
