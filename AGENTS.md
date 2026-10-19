@@ -102,6 +102,14 @@ one-off requests.
   is the MD5 of zero bytes. Two keys with identical bytes share an ETag, so **never treat an ETag
   as unique** (key + ETag is fine). They used to be `md5(filePath + content)`: rclone copying
   from AWS into cdn.hillview.tv flagged every object as corrupted (2026-10-18).
+- **aws-chunked bodies are decoded** (`aws/Chunked.aws.go`). AWS SDK v2 clients over HTTPS send
+  PutObject as `Content-Encoding: aws-chunked` / `X-Amz-Content-Sha256: STREAMING-…` with a
+  trailing `x-amz-checksum-*` by default. `HandleUpload` wraps the body in `aws.NewChunkedReader`,
+  which strips the framing, verifies the trailing crc32/crc32c/sha256 (`400 BadDigest`) and
+  `X-Amz-Decoded-Content-Length` (`400 IncompleteBody`). Chunk signatures are parsed, not verified.
+  Before this, the framing was stored inside the object (Hillview uploads, 2026-10-18). The SDK
+  only does this over TLS: an end-to-end check needs HTTPS in front of the server, or the bug
+  doesn't reproduce.
 - **Content-MD5** on PUT is verified: a malformed header is `400 InvalidDigest`, a mismatch
   `400 BadDigest`. `CreateObject` writes to a temp file (`.upload-*`, same directory) and renames
   it into place, so a refused or failed upload never replaces the stored object.
