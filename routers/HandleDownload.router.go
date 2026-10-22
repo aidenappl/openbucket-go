@@ -1,11 +1,11 @@
 package routers
 
 import (
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aidenappl/openbucket-go/aws"
@@ -32,8 +32,8 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["uploadId"]; ok {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "UploadId query parameter is not supported for download")
+		// ListParts: not implemented (clients' upload managers don't need it).
+		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "ListParts is not implemented", request, host)
 		return
 	}
 	if _, ok := q["attributes"]; ok {
@@ -260,6 +260,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	metadata := middleware.RetrieveMetadata(r)  // File metadata
 	session := middleware.RetrieveSession(r)    // User session
 
+	signed := session != nil
 	if (metadata == nil || !metadata.Public) && (permissions == nil || !types.IsBucketACLRead(permissions.ACL)) && session == nil {
 		// Check if request has a valid presigned URL
 		if !isValidPresignURL(r, bucket, key) {
@@ -268,6 +269,11 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Presigned URL is valid - continue to serve the file
+		signed = true
+	} else if !signed && r.URL.Query().Get("X-Amz-Signature") != "" {
+		// A public object fetched through a presigned URL: honour its
+		// response-* overrides only if the signature is genuine.
+		signed = isValidPresignURL(r, bucket, key)
 	}
 
 	// Structure response headers
@@ -279,19 +285,38 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("x-amz-tagging-count", strconv.Itoa(len(metadata.Tags.Tag)))
 		w.Header().Set("x-amz-version-id", strconv.Itoa(metadata.VersionID))
 	}
-	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 	w.Header().Set("Content-Type", tools.ContentType(filePath))
-	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))
-
-	// Transfer file content
-	_, err = io.Copy(w, file)
-	if err != nil {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "Error transferring file:", err)
-		return
+	if signed {
+		applyResponseOverrides(w, r)
 	}
 
+	// ServeContent handles Range / If-Range (206, multi-range), conditional
+	// requests against the ETag and Last-Modified (304/412), HEAD, and sets
+	// Content-Length and Accept-Ranges. A whole-file io.Copy meant browsers
+	// could not seek in videos.
+	http.ServeContent(w, r, "", fileInfo.ModTime(), file)
 	log.Println("File successfully served:", filePath)
+}
+
+// responseOverrides are S3's GetObject query parameters that replace a response
+// header. S3 honours them only on signed requests (presigned URL or an
+// authenticated session), never on anonymous ones.
+var responseOverrides = map[string]string{
+	"response-content-type":        "Content-Type",
+	"response-content-disposition": "Content-Disposition",
+	"response-content-language":    "Content-Language",
+	"response-content-encoding":    "Content-Encoding",
+	"response-cache-control":       "Cache-Control",
+	"response-expires":             "Expires",
+}
+
+func applyResponseOverrides(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	for param, header := range responseOverrides {
+		if v := q.Get(param); v != "" && !strings.ContainsAny(v, "\r\n") {
+			w.Header().Set(header, v)
+		}
+	}
 }
 
 func isValidPresignURL(r *http.Request, bucket, key string) bool {

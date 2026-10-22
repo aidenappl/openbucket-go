@@ -113,9 +113,26 @@ one-off requests.
 - **Content-MD5** on PUT is verified: a malformed header is `400 InvalidDigest`, a mismatch
   `400 BadDigest`. `CreateObject` writes to a temp file (`.upload-*`, same directory) and renames
   it into place, so a refused or failed upload never replaces the stored object.
-- **Multipart upload is not implemented** (`501 NotImplemented`); clients must use single-part
-  PUTs (rclone: a large `--s3-upload-cutoff`). When it is added, the completed object's ETag must
-  be S3's form, `"<md5 of the concatenated binary part MD5s>-<part count>"`.
+- **GetObject serves through `http.ServeContent`**: Range / If-Range (206, 416), conditional
+  requests on ETag and Last-Modified (304/412), HEAD; `Accept-Ranges: bytes` on HEAD too. It used
+  to `io.Copy` the whole file, so browsers couldn't seek in videos.
+- **`response-*` overrides** (`response-content-disposition`, `-content-type`, `-cache-control`,
+  `-content-language`, `-content-encoding`, `-expires`) apply only to signed requests (valid
+  presigned URL or authenticated session), as on S3. Anonymous requests ignore them. hillviewVideoAPI
+  relies on this for `<title>.mp4` downloads.
+- **Multipart upload** (`objects/Multipart.objects.go`, `routers/HandleMultipart.router.go`):
+  `POST ?uploads` create, `PUT ?partNumber&uploadId` part (aws-chunked and Content-MD5 handled as on
+  PUT), `POST ?uploadId` complete, `DELETE ?uploadId` abort. ListParts / ListMultipartUploads answer
+  `501` (rclone and the SDK upload managers don't use them). State is on disk, not in Postgres:
+  `buckets/.multipart/<uploadId>/` holds `upload.json` and `part-NNNNN` + `.md5`; it's under
+  `buckets/` so the join writes on the same volume, and no bucket can be named `.multipart`. Limits
+  as S3: parts 1–10000, ≤ 5 GiB, all but the last ≥ 5 MiB. The completed ETag is
+  `"<md5 of concatenated binary part MD5s>-<n>"`. Complete validates first
+  (`PrepareMultipartComplete`, proper 4xx codes — SDKs retry a 200-with-`<Error>` as a 500), then
+  answers 200 and sends a space every 10 s while it joins (`Commit`), because joining GBs outlasts
+  Cloudflare's 100 s and nginx's 60 s; a join failure is an `<Error>` in that 200 body. POST on
+  objects gets `LongTransfer`. Uploads abandoned for 7 days are removed by a goroutine started in
+  `startServer`. Integration tests: `objects/multipart_integration_test.go`.
 - **Delete** is idempotent; deleting a folder marker removes only the marker.
 - **One row per key.** `CreateObject` / `CreateFolder` upsert (`objects/upsert.objects.go`) on the
   unique index `uniq_objects_bucket_key`. Overwrites used to insert duplicate rows; the one-time

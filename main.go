@@ -10,6 +10,7 @@ import (
 	"github.com/aidenappl/openbucket-go/db"
 	"github.com/aidenappl/openbucket-go/env"
 	"github.com/aidenappl/openbucket-go/middleware"
+	"github.com/aidenappl/openbucket-go/objects"
 	"github.com/aidenappl/openbucket-go/routers"
 	"github.com/gorilla/mux"
 )
@@ -22,6 +23,19 @@ func startServer() {
 	} else {
 		log.Println("✅ Database connection established")
 	}
+
+	// Remove multipart uploads abandoned for a week (S3 keeps them until a
+	// lifecycle rule aborts them; there is no such rule here).
+	go func() {
+		for {
+			if n, err := objects.CleanupStaleMultipartUploads(7 * 24 * time.Hour); err != nil {
+				log.Println("multipart cleanup:", err)
+			} else if n > 0 {
+				log.Println("multipart cleanup: removed", n, "abandoned uploads")
+			}
+			time.Sleep(6 * time.Hour)
+		}
+	}()
 
 	// Run auto-migrations (idempotent — safe on every startup)
 	if err := db.RunMigrations(); err != nil {
@@ -85,7 +99,8 @@ func startServer() {
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleHeadObject)).Methods(http.MethodHead)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleDelete)).Methods(http.MethodDelete)
 	r.HandleFunc("/{bucket}/{key:.*}", middleware.LongTransfer(middleware.Authorized(routers.HandleUpload))).Methods(http.MethodPut)
-	r.HandleFunc("/{bucket}/{key:.*}", middleware.Authorized(routers.HandleUploadModification)).Methods(http.MethodPost)
+	// POST covers CompleteMultipartUpload, which joins gigabytes of parts.
+	r.HandleFunc("/{bucket}/{key:.*}", middleware.LongTransfer(middleware.Authorized(routers.HandleUploadModification))).Methods(http.MethodPost)
 
 	// Read/write deadlines are per request (middleware.Deadlines; object
 	// transfers extended by LongTransfer). Server-wide ReadTimeout/WriteTimeout

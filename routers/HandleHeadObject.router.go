@@ -89,6 +89,7 @@ func HandleHeadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Amz-Meta-acl", acl)
 	w.Header().Set("X-Amz-Acl", acl)
 	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
 	if meta.ETag != nil {
 		w.Header().Set("ETag", meta.ETag.Quoted())
