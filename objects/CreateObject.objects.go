@@ -29,6 +29,12 @@ func CreateObject(filePath string, key string, bucket types.Bucket, bodyContent 
 // file and renamed into place, so a refused or failed upload never replaces
 // the object already stored under the key.
 func CreateObjectVerified(filePath string, key string, bucket types.Bucket, bodyContent io.Reader, osContent *[]byte, user *types.Authorization, public *bool, wantMD5 []byte) (*types.ETag, error) {
+	return createObject(filePath, key, bucket, bodyContent, osContent, user, public, wantMD5, nil)
+}
+
+// createObject writes the object; a non-nil etag replaces the content MD5 as
+// the stored ETag (a completed multipart upload's "<md5 of part md5s>-<n>").
+func createObject(filePath string, key string, bucket types.Bucket, bodyContent io.Reader, osContent *[]byte, user *types.Authorization, public *bool, wantMD5 []byte, etagOverride *types.ETag) (*types.ETag, error) {
 	if public == nil {
 		public = new(bool)
 		*public = false
@@ -88,6 +94,9 @@ func CreateObjectVerified(filePath string, key string, bucket types.Bucket, body
 
 	// Get ETag from writer (no need to re-read file)
 	etag := etagWriter.ETag()
+	if etagOverride != nil {
+		etag = *etagOverride
+	}
 
 	stat, err := file.Stat()
 	if err != nil {

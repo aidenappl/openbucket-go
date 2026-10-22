@@ -15,8 +15,7 @@ func HandleDelete(w http.ResponseWriter, r *http.Request) {
 	// Check sub queries
 	q := r.URL.Query()
 	if _, ok := q["uploadId"]; ok {
-		log.Println("Currently do not support multipart cancellations")
-		http.Error(w, "Not Implemented", http.StatusNotImplemented)
+		handleAbortMultipartUpload(w, r)
 		return
 	}
 	if _, ok := q["tagging"]; ok {

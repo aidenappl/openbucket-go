@@ -41,7 +41,7 @@ func HandleUpload(w http.ResponseWriter, r *http.Request) {
 	_, pnOk := q["partNumber"]
 	_, upOk := q["uploadId"]
 	if pnOk && upOk {
-		handleMultipartUpload(w, r)
+		handleUploadPart(w, r)
 		return
 	} else if pnOk || upOk {
 		log.Println("Incomplete multipart upload")
@@ -127,15 +127,6 @@ func handlePutObjectTagging(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error adding new object tags:", err)
 		return
 	}
-}
-
-func handleMultipartUpload(w http.ResponseWriter, r *http.Request) {
-	// Get requestID and hostID
-	requestId := middleware.GetRequestID(r)
-	hostId := middleware.GetHostID(r)
-
-	log.Println("Multipart upload not supported yet")
-	responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "Multipart upload not supported yet", requestId, hostId)
 }
 
 func handlePutObjectACL(w http.ResponseWriter, r *http.Request) {

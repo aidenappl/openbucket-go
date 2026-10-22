@@ -32,8 +32,8 @@ func HandleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := q["uploadId"]; ok {
-		responder.SendAccessDeniedXML(w, &request, &host)
-		log.Println(request, host, "UploadId query parameter is not supported for download")
+		// ListParts: not implemented (clients' upload managers don't need it).
+		responder.SendXMLError(w, http.StatusNotImplemented, "NotImplemented", "ListParts is not implemented", request, host)
 		return
 	}
 	if _, ok := q["attributes"]; ok {
