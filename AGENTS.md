@@ -113,6 +113,13 @@ one-off requests.
 - **Content-MD5** on PUT is verified: a malformed header is `400 InvalidDigest`, a mismatch
   `400 BadDigest`. `CreateObject` writes to a temp file (`.upload-*`, same directory) and renames
   it into place, so a refused or failed upload never replaces the stored object.
+- **GetObject serves through `http.ServeContent`**: Range / If-Range (206, 416), conditional
+  requests on ETag and Last-Modified (304/412), HEAD; `Accept-Ranges: bytes` on HEAD too. It used
+  to `io.Copy` the whole file, so browsers couldn't seek in videos.
+- **`response-*` overrides** (`response-content-disposition`, `-content-type`, `-cache-control`,
+  `-content-language`, `-content-encoding`, `-expires`) apply only to signed requests (valid
+  presigned URL or authenticated session), as on S3. Anonymous requests ignore them. hillviewVideoAPI
+  relies on this for `<title>.mp4` downloads.
 - **Multipart upload** (`objects/Multipart.objects.go`, `routers/HandleMultipart.router.go`):
   `POST ?uploads` create, `PUT ?partNumber&uploadId` part (aws-chunked and Content-MD5 handled as on
   PUT), `POST ?uploadId` complete, `DELETE ?uploadId` abort. ListParts / ListMultipartUploads answer
