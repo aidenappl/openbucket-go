@@ -67,6 +67,8 @@ Set your connection string (with schema path) in your environment variables.
 export DATABASE="postgres://username:password@localhost:5432/openbucket?sslmode=disable&search_path=core"
 ```
 
+In production, leave `DATABASE`, `PRESIGN_SECRET_KEY` and `OB_ADMIN_TOKEN` unset and give the container a Keyring service token (`KEYRING_URL`, `KEYRING_ACCESS_KEY_ID`, `KEYRING_SECRET_ACCESS_KEY`): they are read from Keyring as `<KEYRING_SECRET_PREFIX><NAME>` (default prefix `OB_`).
+
 ### Run the sever
 
 ```
