@@ -23,7 +23,7 @@ are openbucket-api (which talks to this server as an S3 client) and openbucket-w
 
 ```
 main.go              server (no args) or CLI (any args); routes
-env/                 PORT, REGION, DATABASE, PRESIGN_SECRET_KEY, PRESIGN_BASE_URL, OB_ADMIN_TOKEN
+env/                 PORT, REGION, PRESIGN_BASE_URL, KEYRING_SECRET_PREFIX; secrets DATABASE, PRESIGN_SECRET_KEY, OB_ADMIN_TOKEN from env or Keyring
 db/                  connection pool, RunMigrations (idempotent schema + indexes, every boot)
 aws/                 SigV4 signature validation
 auth/                credentials (authorizations table), permission checks + cache
@@ -63,6 +63,13 @@ DATABASE='postgres://openbucket:openbucket@localhost:55433/openbucket?sslmode=di
 ```
 
 `go test ./...` without env fails in `middleware` (env panic) — known, not a regression.
+
+**Secrets in production come from Keyring** (APL-115). `DATABASE`, `PRESIGN_SECRET_KEY` and
+`OB_ADMIN_TOKEN` are read from the environment when set (local, tests), else from Keyring as
+`<KEYRING_SECRET_PREFIX><NAME>` (default prefix `OB_`) with the container's `KEYRING_URL`,
+`KEYRING_ACCESS_KEY_ID` and `KEYRING_SECRET_ACCESS_KEY`, 10 s timeout; missing in both panics
+naming both. Each instance (stack 24 APLB, stack 26 Trailblaze) sets its own prefix, e.g.
+`OB_APLB_` and `OB_TRAILBLAZE_`. Never put these values in a Lattice compose.
 
 End-to-end S3 checks: run the binary against that DB, create a credential and bucket, grant
 `FULL_CONTROL` (owners need an explicit grant), and use the AWS CLI with

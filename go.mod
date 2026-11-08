@@ -10,6 +10,7 @@ require (
 
 require (
 	github.com/Masterminds/squirrel v1.5.4
+	github.com/aidenappl/go-keyring v1.1.0
 	github.com/lib/pq v1.10.9
 	github.com/olekukonko/tablewriter v1.0.8
 )
